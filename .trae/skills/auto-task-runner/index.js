@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
-const { execSync, spawn } = require('child_process');
+const { execSync } = require('child_process');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || '60000', 10);
-const STATE_FILE = path.join(__dirname, '.processed-issues.json');
+const STATE_FILE = path.join(__dirname, '.task-state.json');
+const TASK_QUEUE_FILE = path.join(__dirname, '.task-queue.json');
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || process.cwd();
-const AUTO_TRIGGER_TRAE = process.env.AUTO_TRIGGER_TRAE !== 'false';
 
 function getRepoInfo() {
   try {
@@ -87,23 +87,43 @@ function isTaskIssue(title) {
   return title.toLowerCase().startsWith('[task]');
 }
 
-function loadProcessedIssues() {
+function loadState() {
   try {
     if (fs.existsSync(STATE_FILE)) {
       const data = fs.readFileSync(STATE_FILE, 'utf-8');
       return JSON.parse(data);
     }
   } catch (error) {
-    console.error('Warning: Could not load processed issues state:', error.message);
+    console.error('Warning: Could not load state:', error.message);
   }
-  return { processed: [], lastCheck: null };
+  return { processed: [], lastCheck: null, currentTask: null };
 }
 
-function saveProcessedIssues(state) {
+function saveState(state) {
   try {
     fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
   } catch (error) {
-    console.error('Warning: Could not save processed issues state:', error.message);
+    console.error('Warning: Could not save state:', error.message);
+  }
+}
+
+function loadTaskQueue() {
+  try {
+    if (fs.existsSync(TASK_QUEUE_FILE)) {
+      const data = fs.readFileSync(TASK_QUEUE_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Warning: Could not load task queue:', error.message);
+  }
+  return { tasks: [] };
+}
+
+function saveTaskQueue(queue) {
+  try {
+    fs.writeFileSync(TASK_QUEUE_FILE, JSON.stringify(queue, null, 2));
+  } catch (error) {
+    console.error('Warning: Could not save task queue:', error.message);
   }
 }
 
@@ -198,19 +218,6 @@ function createTaskBranch(issueNumber, issueTitle) {
   return branchName;
 }
 
-function commitChanges(message) {
-  console.log('Staging all changes...');
-  execGit('git add -A');
-  
-  console.log(`Committing with message: ${message}`);
-  execGit(`git commit -m "${message}"`);
-}
-
-async function pushBranch(branchName, owner, repo) {
-  console.log(`Pushing branch ${branchName} to origin...`);
-  execGit(`git push -u origin ${branchName}`);
-}
-
 async function createPullRequest(owner, repo, branchName, issueNumber, issueTitle, issueBody) {
   const prTitle = `Resolve #${issueNumber}: ${issueTitle}`;
   const prBody = `## Summary\n\nThis PR resolves issue #${issueNumber}\n\n## Original Issue\n\n${issueBody || 'No description provided.'}\n\n## Changes\n\n- Implemented the requested feature/fix\n\nCloses #${issueNumber}`;
@@ -240,90 +247,6 @@ async function createIssueComment(owner, repo, issueNumber, prUrl, prTitle) {
   console.log(`Comment added to issue #${issueNumber}`);
 }
 
-function triggerTraeTask(task) {
-  const taskTitle = task.title.replace(/^\[task\]\s*/i, '');
-  const prompt = `请完成 GitHub Issue #${task.number}: ${taskTitle}\n\n任务描述:\n${task.body || '无描述'}\n\n请在当前分支上实现这个任务，完成后提交代码。`;
-  
-  console.log('\n🤖 Triggering Trae AI agent...');
-  console.log(`Prompt: ${prompt.substring(0, 100)}...`);
-  
-  try {
-    const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\n/g, ' ');
-    
-    execSync(`trae chat -m agent -n "${escapedPrompt}"`, {
-      cwd: WORKSPACE_ROOT,
-      stdio: 'pipe'
-    });
-    
-    console.log('✅ Trae AI agent has been triggered in a new window');
-    console.log('   Please check the new Trae window.');
-    
-    return true;
-  } catch (error) {
-    console.error('❌ Failed to trigger Trae:', error.message);
-    console.log('\n📋 Manual prompt for Trae:');
-    console.log('---');
-    console.log(prompt);
-    console.log('---');
-    return false;
-  }
-}
-
-async function processTask(owner, repo, task, autoTrigger = true) {
-  console.log('\n' + '='.repeat(60));
-  console.log(`Processing Issue #${task.number}: ${task.title}`);
-  console.log('='.repeat(60));
-
-  const branchName = createTaskBranch(task.number, task.title);
-  
-  console.log(`\n📋 Task Description:\n${task.body || 'No description'}`);
-  
-  if (autoTrigger) {
-    triggerTraeTask(task);
-  } else {
-    console.log('\n⏳ Waiting for task implementation...');
-    console.log('The task needs to be implemented manually or by an AI agent.');
-    console.log('Once implemented, the changes will be committed and submitted.\n');
-  }
-
-  return {
-    issueNumber: task.number,
-    branchName,
-    status: autoTrigger ? 'trae_triggered' : 'ready_for_implementation'
-  };
-}
-
-async function submitTask(owner, repo, task, branchName) {
-  console.log(`\n📤 Submitting work for issue #${task.number}...`);
-
-  const currentBranch = getCurrentBranch();
-  
-  const status = execSync('git status --porcelain', { encoding: 'utf-8', cwd: WORKSPACE_ROOT }).trim();
-  if (status.length > 0) {
-    const message = `Complete task for issue #${task.number}: ${task.title}`;
-    commitChanges(message);
-  } else {
-    console.log('No uncommitted changes found.');
-  }
-
-  await pushBranch(currentBranch, owner, repo);
-
-  const pr = await createPullRequest(owner, repo, currentBranch, task.number, task.title, task.body);
-
-  await createIssueComment(owner, repo, task.number, pr.html_url, pr.title);
-
-  console.log('\n✅ Task submitted successfully!');
-  console.log(`   Branch: ${currentBranch}`);
-  console.log(`   Pull Request: ${pr.html_url}`);
-  console.log(`   Issue: ${task.url}`);
-
-  return {
-    branchName: currentBranch,
-    pullRequest: pr,
-    issue: task
-  };
-}
-
 function showHelp() {
   console.log(`
 Auto Task Runner - Automatically poll GitHub and process task issues
@@ -332,15 +255,18 @@ Usage:
   node index.js <command> [options]
 
 Commands:
-  poll              Continuously poll for new issues and process them
+  poll              Continuously poll for new issues
                      Options: --interval <ms> (default: 60000)
-                     Options: --no-trae (disable auto-triggering Trae)
 
-  once              Check for new issues once and process them
+  fetch             Fetch and list pending tasks
 
-  status            Show current status and processed issues
+  start <issue>     Start working on an issue (creates branch)
 
-  reset             Reset the processed issues state
+  submit <issue>    Submit completed work (commits, pushes, creates PR)
+
+  status            Show current status
+
+  reset             Reset the state
 
   help              Show this help message
 
@@ -349,31 +275,34 @@ Environment Variables:
   GITHUB_REPOSITORY  Repository in format owner/repo (optional, auto-detected)
   POLL_INTERVAL      Polling interval in milliseconds (default: 60000)
   WORKSPACE_ROOT     Root directory for git operations (default: current directory)
-  AUTO_TRIGGER_TRAE  Auto-trigger Trae AI agent (default: true, set to 'false' to disable)
 
 Examples:
-  node index.js poll
-  node index.js poll --interval 30000
-  node index.js poll --no-trae
-  node index.js once
-  node index.js status
+  # Start polling for new issues
+  node index.js poll --interval 300000
+
+  # Check for pending tasks
+  node index.js fetch
+
+  # Start working on issue #3
+  node index.js start 3
+
+  # Submit completed work for issue #3
+  node index.js submit 3
 `);
 }
 
 async function runPoll(options = {}) {
   const interval = options.interval || POLL_INTERVAL;
-  const autoTriggerTrae = options.trae !== false;
   const repoPath = process.env.GITHUB_REPOSITORY || getRepoInfo();
   const [owner, repo] = repoPath.split('/');
 
   console.log(`Starting auto-task-runner for ${owner}/${repo}`);
   console.log(`Poll interval: ${interval}ms`);
-  console.log(`Auto-trigger Trae: ${autoTriggerTrae}`);
   console.log('Press Ctrl+C to stop\n');
 
   while (true) {
     try {
-      const state = loadProcessedIssues();
+      const state = loadState();
       const processedSet = new Set(state.processed);
 
       const newTasks = await fetchNewTaskIssues(owner, repo, processedSet);
@@ -381,25 +310,34 @@ async function runPoll(options = {}) {
       if (newTasks.length > 0) {
         console.log(`\n🎉 Found ${newTasks.length} new task(s)!`);
 
+        const queue = loadTaskQueue();
+        
         for (const task of newTasks) {
-          try {
-            await processTask(owner, repo, task, autoTriggerTrae);
-            
-            state.processed.push(task.number);
-            state.lastCheck = new Date().toISOString();
-            saveProcessedIssues(state);
-            
-            console.log(`\n✅ Issue #${task.number} prepared for implementation`);
-          } catch (error) {
-            console.error(`\n❌ Error processing issue #${task.number}:`, error.message);
+          const existingTask = queue.tasks.find(t => t.number === task.number);
+          if (!existingTask) {
+            queue.tasks.push({
+              ...task,
+              status: 'pending',
+              addedAt: new Date().toISOString()
+            });
           }
+          
+          state.processed.push(task.number);
+          
+          console.log(`\n📋 Issue #${task.number}: ${task.title}`);
+          console.log(`   URL: ${task.url}`);
+          console.log(`   Description: ${task.body.substring(0, 100)}...`);
         }
+        
+        saveTaskQueue(queue);
+        state.lastCheck = new Date().toISOString();
+        saveState(state);
+        
+        console.log('\n💡 Run "node index.js fetch" to see all pending tasks');
+        console.log('💡 Run "node index.js start <issue>" to start working on a task');
       } else {
         console.log('No new tasks found.');
       }
-
-      state.lastCheck = new Date().toISOString();
-      saveProcessedIssues(state);
 
     } catch (error) {
       console.error('Error during polling:', error.message);
@@ -410,51 +348,123 @@ async function runPoll(options = {}) {
   }
 }
 
-async function runOnce(options = {}) {
-  const autoTriggerTrae = options.trae !== false;
-  const repoPath = process.env.GITHUB_REPOSITORY || getRepoInfo();
-  const [owner, repo] = repoPath.split('/');
-
-  console.log(`Checking for new tasks in ${owner}/${repo}...`);
-  console.log(`Auto-trigger Trae: ${autoTriggerTrae}\n`);
-
-  const state = loadProcessedIssues();
-  const processedSet = new Set(state.processed);
-
-  const newTasks = await fetchNewTaskIssues(owner, repo, processedSet);
-
-  if (newTasks.length === 0) {
-    console.log('No new tasks found.');
+async function runFetch() {
+  const queue = loadTaskQueue();
+  
+  if (queue.tasks.length === 0) {
+    console.log('No pending tasks found.');
+    console.log('Run "node index.js poll" to check for new issues.');
     return;
   }
 
-  console.log(`\n🎉 Found ${newTasks.length} new task(s)!`);
-
-  for (const task of newTasks) {
-    try {
-      await processTask(owner, repo, task, autoTriggerTrae);
-      
-      state.processed.push(task.number);
-      state.lastCheck = new Date().toISOString();
-      saveProcessedIssues(state);
-      
-      console.log(`\n✅ Issue #${task.number} prepared for implementation`);
-    } catch (error) {
-      console.error(`\n❌ Error processing issue #${task.number}:`, error.message);
-    }
+  console.log(`\n📋 Pending Tasks (${queue.tasks.length}):\n`);
+  
+  for (const task of queue.tasks) {
+    console.log('='.repeat(60));
+    console.log(`Issue #${task.number}: ${task.title}`);
+    console.log(`Status: ${task.status}`);
+    console.log(`URL: ${task.url}`);
+    console.log(`Added: ${task.addedAt}`);
+    console.log('-'.repeat(60));
+    console.log(task.body || 'No description');
+    console.log('');
   }
+  
+  console.log('💡 Run "node index.js start <issue>" to start working on a task');
+}
+
+async function runStart(issueNumber) {
+  const repoPath = process.env.GITHUB_REPOSITORY || getRepoInfo();
+  const [owner, repo] = repoPath.split('/');
+  
+  const queue = loadTaskQueue();
+  const task = queue.tasks.find(t => t.number === parseInt(issueNumber));
+  
+  if (!task) {
+    console.error(`Task #${issueNumber} not found in queue.`);
+    console.log('Run "node index.js fetch" to see available tasks.');
+    return;
+  }
+
+  console.log(`\n🚀 Starting work on Issue #${task.number}: ${task.title}`);
+  
+  const branchName = createTaskBranch(task.number, task.title);
+  
+  task.status = 'in_progress';
+  task.branchName = branchName;
+  task.startedAt = new Date().toISOString();
+  saveTaskQueue(queue);
+  
+  console.log(`\n✅ Ready to implement!`);
+  console.log(`   Branch: ${branchName}`);
+  console.log(`\n📋 Task Description:`);
+  console.log(task.body || 'No description');
+  console.log(`\n💡 Implement the task, then run "node index.js submit ${task.number}"`);
+}
+
+async function runSubmit(issueNumber) {
+  const repoPath = process.env.GITHUB_REPOSITORY || getRepoInfo();
+  const [owner, repo] = repoPath.split('/');
+  
+  const queue = loadTaskQueue();
+  const task = queue.tasks.find(t => t.number === parseInt(issueNumber));
+  
+  if (!task) {
+    console.error(`Task #${issueNumber} not found in queue.`);
+    return;
+  }
+
+  console.log(`\n📤 Submitting work for Issue #${task.number}...`);
+
+  const currentBranch = getCurrentBranch();
+  console.log(`Current branch: ${currentBranch}`);
+  
+  const status = execSync('git status --porcelain', { encoding: 'utf-8', cwd: WORKSPACE_ROOT }).trim();
+  if (status.length > 0) {
+    const message = `Complete task for issue #${task.number}: ${task.title}`;
+    console.log('Staging all changes...');
+    execGit('git add -A');
+    console.log(`Committing with message: ${message}`);
+    execGit(`git commit -m "${message}"`);
+  } else {
+    console.log('No uncommitted changes found.');
+  }
+
+  console.log(`Pushing branch ${currentBranch} to origin...`);
+  execGit(`git push -u origin ${currentBranch}`);
+
+  const pr = await createPullRequest(owner, repo, currentBranch, task.number, task.title, task.body);
+  await createIssueComment(owner, repo, task.number, pr.html_url, pr.title);
+
+  task.status = 'completed';
+  task.completedAt = new Date().toISOString();
+  task.pullRequest = pr.html_url;
+  saveTaskQueue(queue);
+
+  queue.tasks = queue.tasks.filter(t => t.number !== parseInt(issueNumber));
+  saveTaskQueue(queue);
+
+  console.log('\n✅ Task submitted successfully!');
+  console.log(`   Branch: ${currentBranch}`);
+  console.log(`   Pull Request: ${pr.html_url}`);
+  console.log(`   Issue: ${task.url}`);
 }
 
 function showStatus() {
-  const state = loadProcessedIssues();
+  const state = loadState();
+  const queue = loadTaskQueue();
   
   console.log('\nAuto Task Runner Status');
   console.log('='.repeat(40));
   console.log(`Last check: ${state.lastCheck || 'Never'}`);
   console.log(`Processed issues: ${state.processed.length}`);
+  console.log(`Pending tasks: ${queue.tasks.length}`);
   
-  if (state.processed.length > 0) {
-    console.log('\nProcessed issue numbers:', state.processed.join(', '));
+  if (queue.tasks.length > 0) {
+    console.log('\nPending tasks:');
+    for (const task of queue.tasks) {
+      console.log(`  #${task.number}: ${task.title} (${task.status})`);
+    }
   }
 }
 
@@ -462,10 +472,11 @@ function resetState() {
   try {
     if (fs.existsSync(STATE_FILE)) {
       fs.unlinkSync(STATE_FILE);
-      console.log('✅ Processed issues state has been reset.');
-    } else {
-      console.log('No state file found. Nothing to reset.');
     }
+    if (fs.existsSync(TASK_QUEUE_FILE)) {
+      fs.unlinkSync(TASK_QUEUE_FILE);
+    }
+    console.log('✅ State has been reset.');
   } catch (error) {
     console.error('Error resetting state:', error.message);
   }
@@ -481,17 +492,16 @@ function parseArgs() {
   }
 
   const options = {};
+  let issueNumber = null;
 
   for (let i = 1; i < args.length; i++) {
     if (args[i].startsWith('--')) {
       const key = args[i].slice(2);
-      if (key === 'no-trae') {
-        options.trae = false;
-      } else {
-        const value = args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true;
-        options[key] = value;
-        if (typeof value === 'string') i++;
-      }
+      const value = args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true;
+      options[key] = value;
+      if (typeof value === 'string') i++;
+    } else if (!isNaN(parseInt(args[i]))) {
+      issueNumber = parseInt(args[i]);
     }
   }
 
@@ -499,8 +509,22 @@ function parseArgs() {
     case 'poll':
       runPoll(options);
       break;
-    case 'once':
-      runOnce(options);
+    case 'fetch':
+      runFetch();
+      break;
+    case 'start':
+      if (!issueNumber) {
+        console.error('Error: Issue number is required for start command');
+        process.exit(1);
+      }
+      runStart(issueNumber);
+      break;
+    case 'submit':
+      if (!issueNumber) {
+        console.error('Error: Issue number is required for submit command');
+        process.exit(1);
+      }
+      runSubmit(issueNumber);
       break;
     case 'status':
       showStatus();

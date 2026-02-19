@@ -1,46 +1,54 @@
 ---
 name: "auto-task-runner"
-description: "Automatically polls GitHub for new issues with [task] prefix and processes them as isolated tasks. Invoke when user wants continuous automated task processing from GitHub issues."
+description: "Automatically polls GitHub for new issues with [task] prefix and manages task queue. Invoke when user wants to check for new tasks or manage pending tasks."
 ---
 
 # Auto Task Runner
 
-This skill automates the process of continuously polling GitHub for new task issues and processing them with task isolation.
+This skill automates the process of continuously polling GitHub for new task issues and managing a task queue.
 
 ## Features
 
 - **Continuous Polling**: Automatically checks for new GitHub issues at configurable intervals
-- **Auto-Trigger Trae**: Automatically triggers Trae AI agent to implement tasks
-- **Task Isolation**: Each task is processed in its own branch to prevent conflicts
+- **Task Queue**: Maintains a queue of pending tasks for processing
+- **Task Isolation**: Each task is processed in its own branch
 - **State Management**: Tracks processed issues to avoid duplicate work
 - **Admin Filtering**: Only processes issues from repository admins/maintainers
-- **[task] Prefix Detection**: Filters issues by the `[task]` prefix in titles
 
 ## Commands
 
 ### poll
 Start continuous polling for new issues.
 ```bash
-node index.js poll
-node index.js poll --interval 30000  # Check every 30 seconds
-node index.js poll --no-trae         # Disable auto-triggering Trae
+node index.js poll --interval 300000  # Check every 5 minutes
 ```
 
-### once
-Check for new issues once and process them.
+### fetch
+List all pending tasks in the queue.
 ```bash
-node index.js once
-node index.js once --no-trae         # Disable auto-triggering Trae
+node index.js fetch
+```
+
+### start
+Start working on an issue (creates branch).
+```bash
+node index.js start 3  # Start working on issue #3
+```
+
+### submit
+Submit completed work (commits, pushes, creates PR).
+```bash
+node index.js submit 3  # Submit work for issue #3
 ```
 
 ### status
-Show current status and processed issues.
+Show current status.
 ```bash
 node index.js status
 ```
 
 ### reset
-Reset the processed issues state.
+Reset the state and task queue.
 ```bash
 node index.js reset
 ```
@@ -48,49 +56,32 @@ node index.js reset
 ## Usage
 
 Invoke this skill when:
-- User wants continuous automated task processing
-- User asks to monitor GitHub for new tasks
-- User wants to set up automated development workflow
+- User wants to check for new GitHub issues
+- User wants to see pending tasks
+- User wants to start or submit a task
 
 ## Requirements
 
 - Node.js installed
 - GitHub Personal Access Token (set as `GITHUB_TOKEN` environment variable)
 - Git repository with GitHub remote configured
-- Trae CLI installed (for auto-trigger feature)
 
 ## Configuration
 
-The script uses the following environment variables:
 - `GITHUB_TOKEN`: GitHub Personal Access Token with repo permissions (required)
-- `GITHUB_REPOSITORY`: Repository in format `owner/repo`. Auto-detected from git remote if not set.
+- `GITHUB_REPOSITORY`: Repository in format `owner/repo`. Auto-detected from git remote.
 - `POLL_INTERVAL`: Polling interval in milliseconds (default: 60000)
 - `WORKSPACE_ROOT`: Root directory for git operations (default: current directory)
-- `AUTO_TRIGGER_TRAE`: Auto-trigger Trae AI agent (default: true, set to 'false' to disable)
 
 ## Workflow
 
-1. **Poll**: Continuously checks for new issues at the configured interval
-2. **Filter**: Only processes issues from admins with `[task]` prefix
-3. **Isolate**: Creates a new branch for each task (`task/issue-{number}-{title}`)
-4. **Trigger**: Automatically triggers Trae AI agent to implement the task
-5. **Track**: Records processed issues to avoid duplicates
-
-## Task Isolation
-
-To prevent multiple tasks from interfering with each other:
-- Each task gets its own feature branch
-- The branch is created from the latest `main`/`master`
-- Processed issues are tracked in `.processed-issues.json`
-
-## Auto-Trigger Trae
-
-When a new task is found, the script can automatically trigger Trae AI agent:
-```bash
-trae chat -m agent -r "请完成 GitHub Issue #X: Task Title..."
 ```
-
-This opens Trae in agent mode with the task description, allowing the AI to implement the task autonomously.
+1. poll    → Continuously check for new issues → Add to queue
+2. fetch   → View pending tasks
+3. start   → Create branch and prepare for implementation
+4. [AI Agent implements the task]
+5. submit  → Commit, push, create PR
+```
 
 ## Example Usage
 
@@ -98,39 +89,70 @@ This opens Trae in agent mode with the task description, allowing the AI to impl
 # Set token
 export GITHUB_TOKEN=your_token
 
-# Start continuous polling with auto-trigger (default)
-node index.js poll
+# Start polling (every 5 minutes)
+node index.js poll --interval 300000
 
-# Start polling without auto-trigger
-node index.js poll --no-trae
+# In another terminal, check pending tasks
+node index.js fetch
 
-# Check once for new tasks
-node index.js once
+# Start working on issue #3
+node index.js start 3
 
-# Check status
-node index.js status
+# After implementing the task, submit
+node index.js submit 3
 ```
 
-## Integration with github-task-handler
+## Integration with AI Agent
 
-This skill works together with `github-task-handler`:
-1. `auto-task-runner` detects new issues and triggers Trae
-2. Trae AI agent implements the task
-3. `github-task-handler` can be used to submit the completed work
+The workflow is designed to work with AI agents:
+
+1. `poll` runs in background, discovers new issues
+2. `fetch` shows what tasks are available
+3. AI agent calls `start` to prepare the workspace
+4. AI agent implements the task
+5. AI agent calls `submit` to create PR
 
 ## Output Format
 
-When new tasks are found, the script outputs:
+### Poll output
 ```
-🎉 Found N new task(s)!
-============================================================
-Processing Issue #X: [task] Task Title
-============================================================
-Creating branch: task/issue-X-task-title
+🎉 Found 1 new task(s)!
+
+📋 Issue #3: [task]创建GitHub pages
+   URL: https://github.com/owner/repo/issues/3
+   Description: 要求：创建一个简单的页面...
+
+💡 Run "node index.js fetch" to see all pending tasks
+💡 Run "node index.js start <issue>" to start working on a task
+```
+
+### Start output
+```
+🚀 Starting work on Issue #3: [task]创建GitHub pages
+Creating branch: task/issue-3-github-pages
+
+✅ Ready to implement!
+   Branch: task/issue-3-github-pages
 
 📋 Task Description:
-Task description here...
+要求：创建一个简单的页面，部署到当前项目的GitHub page
 
-🤖 Triggering Trae AI agent...
-✅ Trae AI agent has been triggered in a new session
+💡 Implement the task, then run "node index.js submit 3"
+```
+
+### Submit output
+```
+📤 Submitting work for Issue #3...
+Current branch: task/issue-3-github-pages
+Staging all changes...
+Committing with message: Complete task for issue #3: [task]创建GitHub pages
+Pushing branch task/issue-3-github-pages to origin...
+Creating pull request for issue #3...
+Pull request created: https://github.com/owner/repo/pull/4
+Adding comment to issue #3...
+
+✅ Task submitted successfully!
+   Branch: task/issue-3-github-pages
+   Pull Request: https://github.com/owner/repo/pull/4
+   Issue: https://github.com/owner/repo/issues/3
 ```
