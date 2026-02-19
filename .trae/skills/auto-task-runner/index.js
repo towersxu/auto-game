@@ -250,21 +250,13 @@ function triggerTraeTask(task) {
   try {
     const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\n/g, ' ');
     
-    if (process.platform === 'darwin') {
-      execSync(`open -a "Trae CN" --args chat -m agent -r "${escapedPrompt}"`, {
-        cwd: WORKSPACE_ROOT,
-        stdio: 'pipe'
-      });
-    } else {
-      execSync(`trae chat -m agent -r "${escapedPrompt}" &`, {
-        cwd: WORKSPACE_ROOT,
-        stdio: 'pipe',
-        detached: true
-      });
-    }
+    execSync(`trae chat -m agent -n "${escapedPrompt}"`, {
+      cwd: WORKSPACE_ROOT,
+      stdio: 'pipe'
+    });
     
-    console.log('✅ Trae AI agent has been triggered');
-    console.log('   Please check the Trae application window.');
+    console.log('✅ Trae AI agent has been triggered in a new window');
+    console.log('   Please check the new Trae window.');
     
     return true;
   } catch (error) {
