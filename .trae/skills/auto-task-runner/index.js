@@ -248,25 +248,31 @@ function triggerTraeTask(task) {
   console.log(`Prompt: ${prompt.substring(0, 100)}...`);
   
   try {
-    const traeProcess = spawn('trae', [
-      'chat',
-      '-m', 'agent',
-      '-r',
-      prompt
-    ], {
-      cwd: WORKSPACE_ROOT,
-      stdio: 'inherit',
-      detached: true
-    });
+    const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\n/g, ' ');
     
-    traeProcess.unref();
+    if (process.platform === 'darwin') {
+      execSync(`open -a "Trae CN" --args chat -m agent -r "${escapedPrompt}"`, {
+        cwd: WORKSPACE_ROOT,
+        stdio: 'pipe'
+      });
+    } else {
+      execSync(`trae chat -m agent -r "${escapedPrompt}" &`, {
+        cwd: WORKSPACE_ROOT,
+        stdio: 'pipe',
+        detached: true
+      });
+    }
     
-    console.log('✅ Trae AI agent has been triggered in a new session');
-    console.log('   The agent will work on the task independently.');
+    console.log('✅ Trae AI agent has been triggered');
+    console.log('   Please check the Trae application window.');
     
     return true;
   } catch (error) {
     console.error('❌ Failed to trigger Trae:', error.message);
+    console.log('\n📋 Manual prompt for Trae:');
+    console.log('---');
+    console.log(prompt);
+    console.log('---');
     return false;
   }
 }
