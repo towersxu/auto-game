@@ -1,0 +1,19 @@
+{
+  "name": "dev-task-logger",
+  "version": "1.0.0",
+  "description": "Records all agent development tasks to a local log file",
+  "main": "index.js",
+  "bin": {
+    "dev-task-logger": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "task",
+    "logger",
+    "development",
+    "tracking"
+  ],
+  "license": "MIT"
+}

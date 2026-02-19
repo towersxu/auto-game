@@ -1,0 +1,34 @@
+{
+  "tasks": [
+    {
+      "id": "task_1771500978139_ajwsnbges",
+      "timestamp": "2026-02-19T11:36:18.140Z",
+      "title": "创建开发任务记录skill",
+      "description": "创建一个skill用于记录所有agent开发的任务",
+      "files": [
+        ".trae/skills/dev-task-logger/SKILL.md",
+        ".trae/skills/dev-task-logger/index.js",
+        ".trae/skills/dev-task-logger/package.json"
+      ],
+      "status": "completed",
+      "source": "github_issue",
+      "githubIssue": {
+        "number": 1,
+        "url": "https://github.com/towersxu/auto-game/issues/1"
+      }
+    },
+    {
+      "id": "task_1771501533306_m5jpgceku",
+      "timestamp": "2026-02-19T11:45:33.306Z",
+      "title": "完善github-task-handler skill",
+      "description": "新增分支创建、PR创建、Issue评论功能",
+      "files": [
+        ".trae/skills/github-task-handler/index.js",
+        ".trae/skills/github-task-handler/SKILL.md"
+      ],
+      "status": "completed",
+      "source": "manual",
+      "githubIssue": null
+    }
+  ]
+}
