@@ -10,6 +10,15 @@
       "addedAt": "2026-02-19T13:28:30.476Z",
       "branchName": "task/issue-3-github-pages",
       "startedAt": "2026-02-19T13:31:54.469Z"
+    },
+    {
+      "number": 5,
+      "title": "[task]monorepo改造",
+      "author": "towersxu",
+      "body": "将当前项目改成monorepo，使用pnpm管理。包含如下子包\n1. pages：管理部署到GitHub pages的演示项目\n2. ui-component: 管理项目ui组建\n3. logic：管理项目的核心逻辑\n4. data-base: 管理项目本地数据存储\n",
+      "url": "https://github.com/towersxu/auto-game/issues/5",
+      "status": "pending",
+      "addedAt": "2026-02-19T14:03:50.066Z"
     }
   ]
 }
