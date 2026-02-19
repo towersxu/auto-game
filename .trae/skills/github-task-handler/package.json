@@ -1,0 +1,19 @@
+{
+  "name": "github-task-handler",
+  "version": "1.0.0",
+  "description": "Fetches GitHub issues and processes tasks from admin users",
+  "main": "index.js",
+  "bin": {
+    "github-task-handler": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "github",
+    "issues",
+    "automation",
+    "tasks"
+  ],
+  "license": "MIT"
+}
