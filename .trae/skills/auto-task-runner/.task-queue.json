@@ -1,0 +1,15 @@
+{
+  "tasks": [
+    {
+      "number": 3,
+      "title": "[task]创建GitHub pages",
+      "author": "towersxu",
+      "body": "要求：\n创建一个简单的页面，部署到当前项目的GitHub page",
+      "url": "https://github.com/towersxu/auto-game/issues/3",
+      "status": "in_progress",
+      "addedAt": "2026-02-19T13:28:30.476Z",
+      "branchName": "task/issue-3-github-pages",
+      "startedAt": "2026-02-19T13:31:54.469Z"
+    }
+  ]
+}
