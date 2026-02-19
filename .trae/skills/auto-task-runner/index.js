@@ -9,6 +9,7 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || '60000', 10);
 const STATE_FILE = path.join(__dirname, '.processed-issues.json');
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || process.cwd();
+const AUTO_TRIGGER_TRAE = process.env.AUTO_TRIGGER_TRAE !== 'false';
 
 function getRepoInfo() {
   try {
@@ -181,7 +182,18 @@ function createTaskBranch(issueNumber, issueTitle) {
   }
   
   execGit('git pull origin main 2>/dev/null || git pull origin master');
-  execGit(`git checkout -b ${branchName}`);
+  
+  const existingBranches = execSync('git branch --list ' + branchName, { 
+    encoding: 'utf-8', 
+    cwd: WORKSPACE_ROOT 
+  }).trim();
+  
+  if (existingBranches.includes(branchName)) {
+    console.log(`Branch ${branchName} already exists, checking it out...`);
+    execGit(`git checkout ${branchName}`);
+  } else {
+    execGit(`git checkout -b ${branchName}`);
+  }
   
   return branchName;
 }
@@ -228,7 +240,38 @@ async function createIssueComment(owner, repo, issueNumber, prUrl, prTitle) {
   console.log(`Comment added to issue #${issueNumber}`);
 }
 
-async function processTask(owner, repo, task) {
+function triggerTraeTask(task) {
+  const taskTitle = task.title.replace(/^\[task\]\s*/i, '');
+  const prompt = `请完成 GitHub Issue #${task.number}: ${taskTitle}\n\n任务描述:\n${task.body || '无描述'}\n\n请在当前分支上实现这个任务，完成后提交代码。`;
+  
+  console.log('\n🤖 Triggering Trae AI agent...');
+  console.log(`Prompt: ${prompt.substring(0, 100)}...`);
+  
+  try {
+    const traeProcess = spawn('trae', [
+      'chat',
+      '-m', 'agent',
+      '-r',
+      prompt
+    ], {
+      cwd: WORKSPACE_ROOT,
+      stdio: 'inherit',
+      detached: true
+    });
+    
+    traeProcess.unref();
+    
+    console.log('✅ Trae AI agent has been triggered in a new session');
+    console.log('   The agent will work on the task independently.');
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to trigger Trae:', error.message);
+    return false;
+  }
+}
+
+async function processTask(owner, repo, task, autoTrigger = true) {
   console.log('\n' + '='.repeat(60));
   console.log(`Processing Issue #${task.number}: ${task.title}`);
   console.log('='.repeat(60));
@@ -237,14 +280,18 @@ async function processTask(owner, repo, task) {
   
   console.log(`\n📋 Task Description:\n${task.body || 'No description'}`);
   
-  console.log('\n⏳ Waiting for task implementation...');
-  console.log('The task needs to be implemented manually or by an AI agent.');
-  console.log('Once implemented, the changes will be committed and submitted.\n');
+  if (autoTrigger) {
+    triggerTraeTask(task);
+  } else {
+    console.log('\n⏳ Waiting for task implementation...');
+    console.log('The task needs to be implemented manually or by an AI agent.');
+    console.log('Once implemented, the changes will be committed and submitted.\n');
+  }
 
   return {
     issueNumber: task.number,
     branchName,
-    status: 'ready_for_implementation'
+    status: autoTrigger ? 'trae_triggered' : 'ready_for_implementation'
   };
 }
 
@@ -289,6 +336,7 @@ Usage:
 Commands:
   poll              Continuously poll for new issues and process them
                      Options: --interval <ms> (default: 60000)
+                     Options: --no-trae (disable auto-triggering Trae)
 
   once              Check for new issues once and process them
 
@@ -303,10 +351,12 @@ Environment Variables:
   GITHUB_REPOSITORY  Repository in format owner/repo (optional, auto-detected)
   POLL_INTERVAL      Polling interval in milliseconds (default: 60000)
   WORKSPACE_ROOT     Root directory for git operations (default: current directory)
+  AUTO_TRIGGER_TRAE  Auto-trigger Trae AI agent (default: true, set to 'false' to disable)
 
 Examples:
   node index.js poll
   node index.js poll --interval 30000
+  node index.js poll --no-trae
   node index.js once
   node index.js status
 `);
@@ -314,11 +364,13 @@ Examples:
 
 async function runPoll(options = {}) {
   const interval = options.interval || POLL_INTERVAL;
+  const autoTriggerTrae = options.trae !== false;
   const repoPath = process.env.GITHUB_REPOSITORY || getRepoInfo();
   const [owner, repo] = repoPath.split('/');
 
   console.log(`Starting auto-task-runner for ${owner}/${repo}`);
   console.log(`Poll interval: ${interval}ms`);
+  console.log(`Auto-trigger Trae: ${autoTriggerTrae}`);
   console.log('Press Ctrl+C to stop\n');
 
   while (true) {
@@ -333,7 +385,7 @@ async function runPoll(options = {}) {
 
         for (const task of newTasks) {
           try {
-            await processTask(owner, repo, task);
+            await processTask(owner, repo, task, autoTriggerTrae);
             
             state.processed.push(task.number);
             state.lastCheck = new Date().toISOString();
@@ -360,11 +412,13 @@ async function runPoll(options = {}) {
   }
 }
 
-async function runOnce() {
+async function runOnce(options = {}) {
+  const autoTriggerTrae = options.trae !== false;
   const repoPath = process.env.GITHUB_REPOSITORY || getRepoInfo();
   const [owner, repo] = repoPath.split('/');
 
-  console.log(`Checking for new tasks in ${owner}/${repo}...\n`);
+  console.log(`Checking for new tasks in ${owner}/${repo}...`);
+  console.log(`Auto-trigger Trae: ${autoTriggerTrae}\n`);
 
   const state = loadProcessedIssues();
   const processedSet = new Set(state.processed);
@@ -380,7 +434,7 @@ async function runOnce() {
 
   for (const task of newTasks) {
     try {
-      await processTask(owner, repo, task);
+      await processTask(owner, repo, task, autoTriggerTrae);
       
       state.processed.push(task.number);
       state.lastCheck = new Date().toISOString();
@@ -433,9 +487,13 @@ function parseArgs() {
   for (let i = 1; i < args.length; i++) {
     if (args[i].startsWith('--')) {
       const key = args[i].slice(2);
-      const value = args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true;
-      options[key] = value;
-      if (typeof value === 'string') i++;
+      if (key === 'no-trae') {
+        options.trae = false;
+      } else {
+        const value = args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true;
+        options[key] = value;
+        if (typeof value === 'string') i++;
+      }
     }
   }
 
@@ -444,7 +502,7 @@ function parseArgs() {
       runPoll(options);
       break;
     case 'once':
-      runOnce();
+      runOnce(options);
       break;
     case 'status':
       showStatus();

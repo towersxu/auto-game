@@ -10,6 +10,7 @@ This skill automates the process of continuously polling GitHub for new task iss
 ## Features
 
 - **Continuous Polling**: Automatically checks for new GitHub issues at configurable intervals
+- **Auto-Trigger Trae**: Automatically triggers Trae AI agent to implement tasks
 - **Task Isolation**: Each task is processed in its own branch to prevent conflicts
 - **State Management**: Tracks processed issues to avoid duplicate work
 - **Admin Filtering**: Only processes issues from repository admins/maintainers
@@ -22,12 +23,14 @@ Start continuous polling for new issues.
 ```bash
 node index.js poll
 node index.js poll --interval 30000  # Check every 30 seconds
+node index.js poll --no-trae         # Disable auto-triggering Trae
 ```
 
 ### once
 Check for new issues once and process them.
 ```bash
 node index.js once
+node index.js once --no-trae         # Disable auto-triggering Trae
 ```
 
 ### status
@@ -54,6 +57,7 @@ Invoke this skill when:
 - Node.js installed
 - GitHub Personal Access Token (set as `GITHUB_TOKEN` environment variable)
 - Git repository with GitHub remote configured
+- Trae CLI installed (for auto-trigger feature)
 
 ## Configuration
 
@@ -62,14 +66,15 @@ The script uses the following environment variables:
 - `GITHUB_REPOSITORY`: Repository in format `owner/repo`. Auto-detected from git remote if not set.
 - `POLL_INTERVAL`: Polling interval in milliseconds (default: 60000)
 - `WORKSPACE_ROOT`: Root directory for git operations (default: current directory)
+- `AUTO_TRIGGER_TRAE`: Auto-trigger Trae AI agent (default: true, set to 'false' to disable)
 
 ## Workflow
 
 1. **Poll**: Continuously checks for new issues at the configured interval
 2. **Filter**: Only processes issues from admins with `[task]` prefix
 3. **Isolate**: Creates a new branch for each task (`task/issue-{number}-{title}`)
-4. **Track**: Records processed issues to avoid duplicates
-5. **Ready**: Prepares the workspace for task implementation
+4. **Trigger**: Automatically triggers Trae AI agent to implement the task
+5. **Track**: Records processed issues to avoid duplicates
 
 ## Task Isolation
 
@@ -78,14 +83,26 @@ To prevent multiple tasks from interfering with each other:
 - The branch is created from the latest `main`/`master`
 - Processed issues are tracked in `.processed-issues.json`
 
+## Auto-Trigger Trae
+
+When a new task is found, the script can automatically trigger Trae AI agent:
+```bash
+trae chat -m agent -r "请完成 GitHub Issue #X: Task Title..."
+```
+
+This opens Trae in agent mode with the task description, allowing the AI to implement the task autonomously.
+
 ## Example Usage
 
 ```bash
 # Set token
 export GITHUB_TOKEN=your_token
 
-# Start continuous polling (checks every minute by default)
+# Start continuous polling with auto-trigger (default)
 node index.js poll
+
+# Start polling without auto-trigger
+node index.js poll --no-trae
 
 # Check once for new tasks
 node index.js once
@@ -97,8 +114,8 @@ node index.js status
 ## Integration with github-task-handler
 
 This skill works together with `github-task-handler`:
-1. `auto-task-runner` detects new issues and prepares branches
-2. The AI agent implements the task
+1. `auto-task-runner` detects new issues and triggers Trae
+2. Trae AI agent implements the task
 3. `github-task-handler` can be used to submit the completed work
 
 ## Output Format
@@ -114,5 +131,6 @@ Creating branch: task/issue-X-task-title
 📋 Task Description:
 Task description here...
 
-⏳ Waiting for task implementation...
+🤖 Triggering Trae AI agent...
+✅ Trae AI agent has been triggered in a new session
 ```
