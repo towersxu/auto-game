@@ -1,0 +1,21 @@
+{
+  "name": "auto-task-runner",
+  "version": "1.0.0",
+  "description": "Automatically polls GitHub for new issues and processes them as isolated tasks",
+  "main": "index.js",
+  "bin": {
+    "auto-task-runner": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "poll": "node index.js poll",
+    "once": "node index.js once"
+  },
+  "keywords": [
+    "github",
+    "automation",
+    "polling",
+    "task-runner"
+  ],
+  "license": "MIT"
+}
