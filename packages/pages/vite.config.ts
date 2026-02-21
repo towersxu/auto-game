@@ -3,7 +3,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   root: '.',
-  base: '/auto-game/',
+  base: process.env.BASE_PATH || '/auto-game/',
   resolve: {
     alias: {
       '@auto-game/ui-component': resolve(__dirname, '../ui-component/src'),
