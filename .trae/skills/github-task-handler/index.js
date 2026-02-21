@@ -307,6 +307,10 @@ async function fetchTasks(options = {}) {
       continue;
     }
 
+    if (issue.labels && issue.labels.some(label => label.name === 'ai-doing')) {
+      continue;
+    }
+
     const author = issue.user.login;
     const isAdmin = adminUsers.has(author) || await checkUserPermission(owner, repo, author);
 
