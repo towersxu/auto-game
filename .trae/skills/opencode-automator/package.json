@@ -1,0 +1,19 @@
+{
+  "name": "opencode-automator",
+  "version": "1.0.0",
+  "description": "Automate OpenCode agent creation with keyboard shortcuts",
+  "main": "index.js",
+  "bin": {
+    "opencode-automator": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "opencode",
+    "automation",
+    "applescript",
+    "macos"
+  ],
+  "license": "MIT"
+}
