@@ -93,16 +93,17 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.action == 'closed'
     steps:
-      - name: Checkout
+      - name: Checkout gh-pages branch
         uses: actions/checkout@v4
         with:
           ref: gh-pages
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Remove preview
+      - name: Remove preview directory
         run: |
           rm -rf ${{ github.event.pull_request.number }}
 
-      - name: Commit changes
+      - name: Commit and push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
