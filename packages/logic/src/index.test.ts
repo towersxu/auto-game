@@ -2,9 +2,6 @@ import { describe, it, expect } from 'vitest';
 import * as index from './index';
 import {
   CHUNK_SIZE,
-  getChunkCoords,
-  getLocalCoords,
-  getChunkKey,
   Chunk,
   ChunkManager,
 } from './coordinate-system';
