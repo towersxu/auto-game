@@ -1,0 +1,21 @@
+{
+  "name": "github-comment-handler",
+  "version": "1.0.0",
+  "description": "Handle GitHub comments with [task] prefix from admin users",
+  "type": "commonjs",
+  "main": "index.js",
+  "bin": {
+    "github-comment-handler": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "github",
+    "comments",
+    "task",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT"
+}
