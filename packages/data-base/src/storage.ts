@@ -28,11 +28,11 @@ export class Storage {
   clear(): void {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(this.prefix)) {
-        keysToRemove.push(key);
+      const storageKey = localStorage.key(i);
+      if (storageKey && storageKey.startsWith(this.prefix)) {
+        keysToRemove.push(storageKey);
       }
     }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
+    keysToRemove.forEach(storageKey => localStorage.removeItem(storageKey));
   }
 }

@@ -8,7 +8,7 @@ export interface GameConfig {
 
 export class GameEngine {
   private state: GameState;
-  private lastTime = 0;
+  private lastFrameTimestamp = 0;
   private running = false;
 
   constructor(private config: GameConfig) {
@@ -17,26 +17,26 @@ export class GameEngine {
 
   start(): void {
     this.running = true;
-    this.lastTime = performance.now();
-    this.loop();
+    this.lastFrameTimestamp = performance.now();
+    this.gameLoop();
   }
 
   stop(): void {
     this.running = false;
   }
 
-  private loop(): void {
+  private gameLoop(): void {
     if (!this.running) return;
 
-    const currentTime = performance.now();
-    const deltaTime = currentTime - this.lastTime;
+    const currentFrameTimestamp = performance.now();
+    const deltaTime = currentFrameTimestamp - this.lastFrameTimestamp;
 
     if (deltaTime >= 1000 / this.config.fps) {
       this.update(deltaTime);
-      this.lastTime = currentTime;
+      this.lastFrameTimestamp = currentFrameTimestamp;
     }
 
-    requestAnimationFrame(() => this.loop());
+    requestAnimationFrame(() => this.gameLoop());
   }
 
   private update(deltaTime: number): void {

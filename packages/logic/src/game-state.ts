@@ -4,6 +4,8 @@ export interface Entity {
   y: number;
 }
 
+const ENTITY_MOVEMENT_SPEED = 0.01;
+
 export class GameState {
   private entities: Map<string, Entity> = new Map();
 
@@ -25,8 +27,8 @@ export class GameState {
 
   update(deltaTime: number): void {
     for (const entity of this.entities.values()) {
-      entity.x += deltaTime * 0.01;
-      entity.y += deltaTime * 0.01;
+      entity.x += deltaTime * ENTITY_MOVEMENT_SPEED;
+      entity.y += deltaTime * ENTITY_MOVEMENT_SPEED;
     }
   }
 }

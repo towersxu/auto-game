@@ -7,12 +7,12 @@ export interface GameConfig {
 export declare class GameEngine {
     private config;
     private state;
-    private lastTime;
+    private lastFrameTimestamp;
     private running;
     constructor(config: GameConfig);
     start(): void;
     stop(): void;
-    private loop;
+    private gameLoop;
     private update;
     getState(): GameState;
 }

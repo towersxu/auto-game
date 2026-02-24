@@ -12,9 +12,9 @@ export class App {
   start(): void {
     console.log('🎮 Auto Game Started!');
     
-    const savedState = this.storage.get<Record<string, unknown>>('game-state');
-    if (savedState) {
-      console.log('Loaded saved state:', savedState);
+    const savedGameState = this.storage.get<Record<string, unknown>>('game-state');
+    if (savedGameState) {
+      console.log('Loaded saved state:', savedGameState);
     }
 
     this.engine = new GameEngine({
@@ -29,9 +29,9 @@ export class App {
   stop(): void {
     if (this.engine) {
       this.engine.stop();
-      const state = this.engine.getState();
+      const currentGameState = this.engine.getState();
       this.storage.set('game-state', {
-        entities: state.getAllEntities()
+        entities: currentGameState.getAllEntities()
       });
     }
   }
