@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-INTERVAL=600
+INTERVAL=1800
 
 echo "🚀 OpenCode Auto Runner Started"
 echo "   Interval: 10 minutes"
