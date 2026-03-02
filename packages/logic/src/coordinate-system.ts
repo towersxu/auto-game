@@ -60,6 +60,19 @@ export function getLocalCoords(x: number, y: number): { lx: number; ly: number }
 }
 
 /**
+ * Calculate the distance between two coordinates
+ * Distance is the Manhattan distance (horizontal + vertical moves only, no diagonal movement)
+ * 
+ * @example
+ * getDistance(1, 1, 1, 0) // returns 1
+ * getDistance(1, 1, 1, 1) // returns 0
+ * getDistance(1, 1, 2, 2) // returns 2
+ */
+export function getDistance(x1: number, y1: number, x2: number, y2: number): number {
+  return Math.abs(x2 - x1) + Math.abs(y2 - y1);
+}
+
+/**
  * Generate a unique chunk key from chunk coordinates
  * Used for Map indexing
  */
