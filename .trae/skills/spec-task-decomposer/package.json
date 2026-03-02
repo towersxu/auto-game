@@ -1,0 +1,20 @@
+{
+  "name": "spec-task-decomposer",
+  "version": "1.0.0",
+  "description": "Decomposes requirements into GitHub sub-issues and tracks subtask progress",
+  "main": "index.js",
+  "bin": {
+    "spec-task-decomposer": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "github",
+    "issues",
+    "subtasks",
+    "spec",
+    "decompose"
+  ],
+  "license": "MIT"
+}

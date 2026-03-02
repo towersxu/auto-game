@@ -76,3 +76,80 @@
 2. **测试检查**：运行 `pnpm test` 确保所有测试通过
 
 **禁止提交会导致 build 失败的代码**。
+
+---
+
+## Spec Coding 规范
+
+本规范定义了 GitHub Agent 在处理需求时的标准化工作流程，确保需求被有序拆分和追踪。
+
+### 阶段 1: 需求接收与拆分
+
+当收到一个复杂需求（通常来自一个 GitHub Issue）时，必须按以下步骤操作：
+
+1. **分析需求**：仔细阅读需求 Issue，理解所有功能点和约束条件。
+2. **拆分子任务**：将需求拆分为若干独立、可执行的子任务。每个子任务应：
+   - 职责单一，范围明确
+   - 可以独立开发和测试
+   - 完成后对父需求有明确贡献
+3. **创建子 Issue**：使用 `spec-task-decomposer` skill 在 GitHub 上创建子任务 Issue：
+   ```bash
+   node .trae/skills/spec-task-decomposer/index.js decompose <parent-issue> \
+     --tasks '[{"title":"子任务1标题","body":"详细描述"},{"title":"子任务2标题","body":"详细描述"}]'
+   ```
+4. **确认拆分**：检查父 Issue 上生成的进度 checklist，确保覆盖了所有需求点。
+
+### 阶段 2: 子任务顺序开发
+
+按照子任务创建顺序，逐一开发：
+
+1. **获取下一个子任务**：
+   ```bash
+   node .trae/skills/spec-task-decomposer/index.js next <parent-issue>
+   ```
+2. **标记开发中**：
+   ```bash
+   node .trae/skills/spec-task-decomposer/index.js start <subtask-issue>
+   ```
+3. **实现子任务**：遵循 TDD 红-绿-重构流程开发。
+4. **标记完成**：
+   ```bash
+   node .trae/skills/spec-task-decomposer/index.js complete <subtask-issue>
+   ```
+5. **重复**：回到步骤 1，直到所有子任务完成。
+
+### 阶段 3: 进度维护
+
+在整个开发过程中，保持进度信息的实时更新：
+
+- **随时可查**：任何时候都可以通过以下命令查看进度：
+  ```bash
+  node .trae/skills/spec-task-decomposer/index.js status <parent-issue>
+  ```
+- **状态流转**：子任务状态必须及时更新：`subtask-pending` → `subtask-in-progress` → `subtask-done`
+- **父 Issue 可见**：父 Issue 上的 checklist 会反映所有子任务的完成情况。
+
+### Spec Coding 工作流总结
+
+```
+收到需求
+   ↓
+decompose <parent> --tasks '[...]'   ← 拆分并创建子 Issue
+   ↓
+next <parent>                        ← 获取下一个子任务
+   ↓
+start <subtask>                      ← 标记开发中
+   ↓
+[TDD 开发实现]                       ← 红-绿-重构
+   ↓
+complete <subtask>                   ← 标记完成
+   ↓
+status <parent>                      ← 检查整体进度
+   ↓
+[重复 next → start → 开发 → complete，直到所有子任务完成]
+```
+
+### 命名约定
+
+- 子任务 Issue 标题格式：`[subtask] <子任务描述>`（`[subtask]` 前缀由工具自动添加，用户只需在 JSON 的 `title` 字段中填写描述部分）
+- 子任务 Issue 正文需包含父 Issue 引用：`Parent Issue: #<父Issue编号>`（由工具自动附加）
