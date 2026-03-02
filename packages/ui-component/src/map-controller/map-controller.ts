@@ -1,4 +1,4 @@
-import { GameMap } from './map';
+import { GameMap } from '../map/map';
 
 export interface MapControllerOptions {
   /** Pan step in world units per button press */

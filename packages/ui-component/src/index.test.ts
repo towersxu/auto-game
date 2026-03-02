@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as index from './index';
-import { UIComponent } from './ui-component';
-import { Button } from './button';
+import { UIComponent } from './ui-component/ui-component';
+import { Button } from './button/button';
 
 describe('ui-component index', () => {
   it('should export UIComponent class', () => {

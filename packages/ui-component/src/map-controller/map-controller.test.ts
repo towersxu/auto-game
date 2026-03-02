@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MapController } from './map-controller';
-import { GameMap } from './map';
+import { GameMap } from '../map/map';
 
 // Minimal GameMap stub – no Three.js needed in controller tests
 function makeMapStub(): GameMap {

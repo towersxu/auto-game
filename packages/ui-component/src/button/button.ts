@@ -1,4 +1,4 @@
-import { UIComponent, UIComponentProps } from './ui-component';
+import { UIComponent, UIComponentProps } from '../ui-component/ui-component';
 
 export interface ButtonProps extends UIComponentProps {
   label: string;
