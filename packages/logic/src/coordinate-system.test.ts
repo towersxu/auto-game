@@ -4,6 +4,7 @@ import {
   getChunkCoords,
   getLocalCoords,
   getChunkKey,
+  getDistance,
   Chunk,
   ChunkManager,
   ChunkEntity,
@@ -59,6 +60,20 @@ describe('Coordinate System', () => {
       expect(getChunkKey(0, 0)).toBe('0:0');
       expect(getChunkKey(1, 2)).toBe('1:2');
       expect(getChunkKey(-1, -2)).toBe('-1:-2');
+    });
+  });
+
+  describe('getDistance', () => {
+    it('should return 1 for coordinates [1,1] and [1,0]', () => {
+      expect(getDistance(1, 1, 1, 0)).toBe(1);
+    });
+
+    it('should return 0 for coordinates [1,1] and [1,1]', () => {
+      expect(getDistance(1, 1, 1, 1)).toBe(0);
+    });
+
+    it('should return 2 for coordinates [1,1] and [2,2]', () => {
+      expect(getDistance(1, 1, 2, 2)).toBe(2);
     });
   });
 });
