@@ -14,9 +14,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@auto-game/ui-component": "workspace:*",
+    "@auto-game/data-base": "workspace:*",
     "@auto-game/logic": "workspace:*",
-    "@auto-game/data-base": "workspace:*"
+    "@auto-game/ui-component": "workspace:*",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "typescript": "^5.3.0",

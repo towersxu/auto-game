@@ -13,6 +13,12 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        mapDemo: resolve(__dirname, 'map-demo.html'),
+      }
+    }
   }
 });

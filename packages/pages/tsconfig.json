@@ -2,8 +2,12 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {
+      "@auto-game/ui-component": ["../ui-component/src/index.ts"],
+      "@auto-game/logic": ["../logic/src/index.ts"],
+      "@auto-game/data-base": ["../data-base/src/index.ts"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "../ui-component/src", "../logic/src", "../data-base/src"]
 }
