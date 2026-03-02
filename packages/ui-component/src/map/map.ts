@@ -1,196 +1,249 @@
-import * as THREE from 'three';
+import { getChunkCoords, getLocalCoords } from '@auto-game/logic';
 
 export interface MapOptions {
   /** Width of the map in grid cells */
   gridWidth?: number;
   /** Height of the map in grid cells */
   gridHeight?: number;
-  /** Size of each grid cell in world units */
+  /** Initial cell size in pixels (will be adjusted to fill canvas) */
   cellSize?: number;
-  /** Color of grid lines */
-  gridColor?: number;
-  /** Color of the map ground */
-  groundColor?: number;
+  /** Color of grid lines (CSS color string or hex number) */
+  gridColor?: string | number;
+  /** Color of the map ground (CSS color string or hex number) */
+  groundColor?: string | number;
 }
 
 export interface MapState {
-  /** Current pan offset X */
+  /** Pixel offset of the grid left edge from the canvas left edge */
   offsetX: number;
-  /** Current pan offset Z */
-  offsetZ: number;
-  /** Current zoom level (camera distance multiplier) */
-  zoom: number;
+  /** Pixel offset of the grid top edge from the canvas top edge */
+  offsetY: number;
+  /** Current cell size in pixels (reflects zoom level) */
+  cellSize: number;
+}
+
+/** Convert a numeric hex color (e.g. 0x4a7c59) or CSS string to a CSS color string */
+function toColorString(color: string | number): string {
+  if (typeof color === 'number') {
+    return '#' + color.toString(16).padStart(6, '0');
+  }
+  return color;
 }
 
 /**
- * A 2D grid map rendered from a 2.5D isometric perspective using Three.js.
+ * A 2D grid map rendered on an HTML Canvas element.
+ *
+ * Design guarantees:
+ * - The grid always fills the entire canvas — no blank space is visible.
+ * - Zooming out is limited so the total grid size never falls below the canvas size.
+ * - Panning is clamped so the grid edges never expose empty canvas area.
+ * - Each cell (col, row) maps to world coordinates via the coordinate-system module.
  */
 export class GameMap {
-  private scene: THREE.Scene;
-  private camera: THREE.OrthographicCamera;
-  private renderer: THREE.WebGLRenderer;
-  private gridHelper: THREE.GridHelper;
-  private ground: THREE.Mesh;
-  private animationId: number | null = null;
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
 
   readonly gridWidth: number;
   readonly gridHeight: number;
-  readonly cellSize: number;
 
   private state: MapState;
+  private gridColor: string;
+  private groundColor: string;
 
   constructor(container: HTMLElement, options: MapOptions = {}) {
     this.gridWidth = options.gridWidth ?? 168;
     this.gridHeight = options.gridHeight ?? 168;
-    this.cellSize = options.cellSize ?? 1;
-    const gridColor = options.gridColor ?? 0x888888;
-    const groundColor = options.groundColor ?? 0x4a7c59;
+    this.gridColor = toColorString(options.gridColor ?? 0x888888);
+    this.groundColor = toColorString(options.groundColor ?? 0x4a7c59);
 
-    const mapW = this.gridWidth * this.cellSize;
-    const mapH = this.gridHeight * this.cellSize;
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = container.clientWidth;
+    this.canvas.height = container.clientHeight;
+    container.appendChild(this.canvas);
 
-    // Scene
-    this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x1a1a2e);
+    this.ctx = this.canvas.getContext('2d') as CanvasRenderingContext2D;
 
-    // Ground plane
-    const groundGeo = new THREE.PlaneGeometry(mapW, mapH);
-    const groundMat = new THREE.MeshBasicMaterial({ color: groundColor });
-    this.ground = new THREE.Mesh(groundGeo, groundMat);
-    this.ground.rotation.x = -Math.PI / 2;
-    this.scene.add(this.ground);
+    // Compute the initial cell size: use the provided value, but enforce the
+    // minimum so the full grid always covers the canvas.
+    const minCell = this._computeMinCellSize();
+    const cellSize = Math.max(minCell, options.cellSize ?? minCell);
 
-    // Grid lines
-    const divisions = Math.max(this.gridWidth, this.gridHeight);
-    this.gridHelper = new THREE.GridHelper(
-      Math.max(mapW, mapH),
-      divisions,
-      gridColor,
-      gridColor
-    );
-    this.scene.add(this.gridHelper);
+    // Center the grid on the canvas initially.
+    const offsetX = (this.canvas.width - this.gridWidth * cellSize) / 2;
+    const offsetY = (this.canvas.height - this.gridHeight * cellSize) / 2;
 
-    // Isometric camera (2.5D view)
-    const aspect = container.clientWidth / container.clientHeight;
-    const frustumSize = Math.max(mapW, mapH) * 0.6;
-    this.camera = new THREE.OrthographicCamera(
-      (-frustumSize * aspect) / 2,
-      (frustumSize * aspect) / 2,
-      frustumSize / 2,
-      -frustumSize / 2,
-      0.1,
-      10000
-    );
-
-    // Isometric angle: look at origin from above-and-side
-    const camDist = frustumSize;
-    this.camera.position.set(camDist, camDist * 0.8, camDist);
-    this.camera.lookAt(0, 0, 0);
-
-    // Renderer
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(window.devicePixelRatio);
-    this.renderer.setSize(container.clientWidth, container.clientHeight);
-    container.appendChild(this.renderer.domElement);
-
-    this.state = { offsetX: 0, offsetZ: 0, zoom: 1 };
+    this.state = {
+      cellSize,
+      offsetX: this._clampOffsetX(offsetX, cellSize),
+      offsetY: this._clampOffsetY(offsetY, cellSize),
+    };
 
     this.render();
   }
 
-  /** Pan the map by delta world units */
-  pan(deltaX: number, deltaZ: number): void {
-    this.state.offsetX += deltaX;
-    this.state.offsetZ += deltaZ;
-    this.camera.position.x += deltaX;
-    this.camera.position.z += deltaZ;
-    this.camera.lookAt(
-      this.state.offsetX,
-      0,
-      this.state.offsetZ
-    );
+  /**
+   * Pan the map by (deltaX, deltaY) pixels.
+   * The offset is clamped to keep the grid filling the canvas.
+   */
+  pan(deltaX: number, deltaY: number): void {
+    const { cellSize } = this.state;
+    this.state.offsetX = this._clampOffsetX(this.state.offsetX + deltaX, cellSize);
+    this.state.offsetY = this._clampOffsetY(this.state.offsetY + deltaY, cellSize);
     this.render();
   }
 
-  /** Reset pan and zoom to the initial state */
+  /** Reset to the initial centered view at minimum zoom. */
   center(): void {
-    this.state.offsetX = 0;
-    this.state.offsetZ = 0;
-    this.state.zoom = 1;
-    const frustumSize =
-      Math.max(this.gridWidth, this.gridHeight) * this.cellSize * 0.6;
-    const camDist = frustumSize;
-    this.camera.position.set(camDist, camDist * 0.8, camDist);
-    this.camera.lookAt(0, 0, 0);
-    this._applyZoom();
+    const cellSize = this._computeMinCellSize();
+    const offsetX = (this.canvas.width - this.gridWidth * cellSize) / 2;
+    const offsetY = (this.canvas.height - this.gridHeight * cellSize) / 2;
+    this.state = {
+      cellSize,
+      offsetX: this._clampOffsetX(offsetX, cellSize),
+      offsetY: this._clampOffsetY(offsetY, cellSize),
+    };
     this.render();
   }
 
-  /** Zoom in (decrease the orthographic frustum size) */
+  /**
+   * Zoom in by growing each cell by (factor * 100)%.
+   * Zoom is applied toward the canvas center.
+   */
   zoomIn(factor = 0.1): void {
-    this.state.zoom = Math.max(0.1, this.state.zoom - factor);
-    this._applyZoom();
-    this.render();
+    this._applyZoom(this.state.cellSize * (1 + factor));
   }
 
-  /** Zoom out (increase the orthographic frustum size) */
+  /**
+   * Zoom out by shrinking each cell by (factor * 100)%.
+   * The cell size is clamped at the minimum required to fill the canvas.
+   */
   zoomOut(factor = 0.1): void {
-    this.state.zoom = Math.min(5, this.state.zoom + factor);
-    this._applyZoom();
-    this.render();
+    const minCell = this._computeMinCellSize();
+    this._applyZoom(Math.max(minCell, this.state.cellSize * (1 - factor)));
   }
 
-  /** Get a copy of the current map state */
+  /** Return a snapshot of the current map state. */
   getState(): MapState {
     return { ...this.state };
   }
 
-  /** Resize the renderer to fit the container */
+  /**
+   * Notify the map that its container has been resized.
+   * Re-clamps the current state so the canvas stays filled.
+   */
   resize(width: number, height: number): void {
-    this.renderer.setSize(width, height);
-    const aspect = width / height;
-    const frustumSize =
-      Math.max(this.gridWidth, this.gridHeight) *
-      this.cellSize *
-      0.6 *
-      this.state.zoom;
-    this.camera.left = (-frustumSize * aspect) / 2;
-    this.camera.right = (frustumSize * aspect) / 2;
-    this.camera.top = frustumSize / 2;
-    this.camera.bottom = -frustumSize / 2;
-    this.camera.updateProjectionMatrix();
+    this.canvas.width = width;
+    this.canvas.height = height;
+    const minCell = this._computeMinCellSize();
+    const cellSize = Math.max(this.state.cellSize, minCell);
+    this.state.cellSize = cellSize;
+    this.state.offsetX = this._clampOffsetX(this.state.offsetX, cellSize);
+    this.state.offsetY = this._clampOffsetY(this.state.offsetY, cellSize);
     this.render();
   }
 
-  /** Render one frame */
+  /**
+   * Return the world coordinate of the cell at grid position (col, row).
+   * Uses the coordinate-system module for chunk and local coordinate resolution.
+   */
+  getCellCoordinate(col: number, row: number): {
+    x: number;
+    y: number;
+    chunk: { cx: number; cy: number };
+    local: { lx: number; ly: number };
+  } {
+    return {
+      x: col,
+      y: row,
+      chunk: getChunkCoords(col, row),
+      local: getLocalCoords(col, row),
+    };
+  }
+
+  /** Render the current frame to the canvas. */
   render(): void {
-    this.renderer.render(this.scene, this.camera);
-  }
+    const { ctx, canvas } = this;
+    const { offsetX, offsetY, cellSize } = this.state;
 
-  /** Dispose of all Three.js resources */
-  dispose(): void {
-    if (this.animationId !== null) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw the ground fill.
+    ctx.fillStyle = this.groundColor;
+    ctx.fillRect(offsetX, offsetY, this.gridWidth * cellSize, this.gridHeight * cellSize);
+
+    // Draw grid lines only for cells that intersect the visible canvas area.
+    const startCol = Math.max(0, Math.floor(-offsetX / cellSize));
+    const endCol = Math.min(this.gridWidth, Math.ceil((canvas.width - offsetX) / cellSize));
+    const startRow = Math.max(0, Math.floor(-offsetY / cellSize));
+    const endRow = Math.min(this.gridHeight, Math.ceil((canvas.height - offsetY) / cellSize));
+
+    ctx.strokeStyle = this.gridColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+
+    for (let col = startCol; col <= endCol; col++) {
+      const x = offsetX + col * cellSize;
+      ctx.moveTo(x, offsetY + startRow * cellSize);
+      ctx.lineTo(x, offsetY + endRow * cellSize);
     }
-    this.ground.geometry.dispose();
-    (this.ground.material as THREE.MeshBasicMaterial).dispose();
-    this.renderer.dispose();
+
+    for (let row = startRow; row <= endRow; row++) {
+      const y = offsetY + row * cellSize;
+      ctx.moveTo(offsetX + startCol * cellSize, y);
+      ctx.lineTo(offsetX + endCol * cellSize, y);
+    }
+
+    ctx.stroke();
   }
 
-  private _applyZoom(): void {
-    const frustumSize =
-      Math.max(this.gridWidth, this.gridHeight) *
-      this.cellSize *
-      0.6 *
-      this.state.zoom;
-    const aspect =
-      this.renderer.domElement.clientWidth /
-      this.renderer.domElement.clientHeight;
-    this.camera.left = (-frustumSize * aspect) / 2;
-    this.camera.right = (frustumSize * aspect) / 2;
-    this.camera.top = frustumSize / 2;
-    this.camera.bottom = -frustumSize / 2;
-    this.camera.updateProjectionMatrix();
+  /** Remove the canvas element and release resources. */
+  dispose(): void {
+    this.canvas.remove();
+  }
+
+  // ─── private helpers ──────────────────────────────────────────────────────
+
+  /**
+   * The smallest cell size (px) that guarantees the full grid covers the canvas
+   * in both dimensions.
+   * Returns 1 as a safe fallback when the canvas has no area (e.g. not yet
+   * attached to a visible layout), so internal state remains consistent.
+   */
+  private _computeMinCellSize(): number {
+    if (this.canvas.width === 0 || this.canvas.height === 0) {
+      return 1;
+    }
+    return Math.max(
+      this.canvas.width / this.gridWidth,
+      this.canvas.height / this.gridHeight,
+    );
+  }
+
+  /** Clamp offsetX so the grid always covers the full canvas width. */
+  private _clampOffsetX(offsetX: number, cellSize: number): number {
+    const minOffset = this.canvas.width - this.gridWidth * cellSize;
+    return Math.min(0, Math.max(minOffset, offsetX));
+  }
+
+  /** Clamp offsetY so the grid always covers the full canvas height. */
+  private _clampOffsetY(offsetY: number, cellSize: number): number {
+    const minOffset = this.canvas.height - this.gridHeight * cellSize;
+    return Math.min(0, Math.max(minOffset, offsetY));
+  }
+
+  /**
+   * Apply a new cell size, keeping the canvas centre fixed in world space,
+   * then re-clamp the offset.
+   */
+  private _applyZoom(newCellSize: number): void {
+    const cx = this.canvas.width / 2;
+    const cy = this.canvas.height / 2;
+    const ratio = newCellSize / this.state.cellSize;
+    const newOffsetX = cx - (cx - this.state.offsetX) * ratio;
+    const newOffsetY = cy - (cy - this.state.offsetY) * ratio;
+    this.state.cellSize = newCellSize;
+    this.state.offsetX = this._clampOffsetX(newOffsetX, newCellSize);
+    this.state.offsetY = this._clampOffsetY(newOffsetY, newCellSize);
+    this.render();
   }
 }

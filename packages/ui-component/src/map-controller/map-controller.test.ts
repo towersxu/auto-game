@@ -10,13 +10,13 @@ function makeMapStub(): GameMap {
     center: vi.fn(),
     zoomIn: vi.fn(),
     zoomOut: vi.fn(),
-    getState: vi.fn(() => ({ offsetX: 0, offsetZ: 0, zoom: 1 })),
+    getState: vi.fn(() => ({ offsetX: 0, offsetY: 0, cellSize: 5 })),
     render: vi.fn(),
     resize: vi.fn(),
     dispose: vi.fn(),
+    getCellCoordinate: vi.fn(),
     gridWidth: 168,
     gridHeight: 168,
-    cellSize: 1,
   } as unknown as GameMap;
 }
 
