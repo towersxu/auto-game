@@ -1,61 +1,32 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// ── Mock Three.js so tests run without a WebGL context ──────────────────────
-vi.mock('three', () => {
-  class FakeObject3D {
-    position = { set: vi.fn(), x: 0, y: 0, z: 0 };
-    rotation = { x: 0 };
-    add = vi.fn();
-  }
-  class FakeScene extends FakeObject3D {
-    background: unknown = null;
-  }
-  class FakeColor {
-    constructor(_hex: number) {}
-  }
-  class FakeGeometry {
-    dispose = vi.fn();
-  }
-  class FakeMaterial {
-    dispose = vi.fn();
-  }
-  class FakeGridHelper extends FakeObject3D {}
-  class FakeMesh extends FakeObject3D {
-    geometry = new FakeGeometry();
-    material = new FakeMaterial();
-  }
-  class FakeCamera {
-    position = { set: vi.fn(), x: 0, y: 0, z: 0 };
-    left = 0; right = 0; top = 0; bottom = 0;
-    lookAt = vi.fn();
-    updateProjectionMatrix = vi.fn();
-  }
-  class FakeRenderer {
-    domElement = document.createElement('canvas') as HTMLCanvasElement;
-    setPixelRatio = vi.fn();
-    setSize = vi.fn();
-    render = vi.fn();
-    dispose = vi.fn();
-  }
-  return {
-    Scene: FakeScene,
-    Color: FakeColor,
-    PlaneGeometry: FakeGeometry,
-    MeshBasicMaterial: FakeMaterial,
-    Mesh: FakeMesh,
-    GridHelper: FakeGridHelper,
-    OrthographicCamera: FakeCamera,
-    WebGLRenderer: FakeRenderer,
-  };
-});
+/** Floating-point tolerance for grid-edge comparisons (avoids sub-pixel rounding failures). */
+const FLOAT_TOLERANCE = 0.001;
+
+// ── Mock the 2D canvas context so tests run without a real rendering engine ──
+const fakeCtx = {
+  clearRect: vi.fn(),
+  fillRect: vi.fn(),
+  strokeRect: vi.fn(),
+  beginPath: vi.fn(),
+  moveTo: vi.fn(),
+  lineTo: vi.fn(),
+  stroke: vi.fn(),
+  fillStyle: '',
+  strokeStyle: '',
+  lineWidth: 1,
+};
+
+// Patch HTMLCanvasElement.prototype.getContext before any tests run.
+HTMLCanvasElement.prototype.getContext = vi.fn(() => fakeCtx) as never;
 
 import { GameMap, MapOptions } from './map';
 
-function makeContainer(): HTMLElement {
+function makeContainer(width = 800, height = 600): HTMLElement {
   const el = document.createElement('div');
-  Object.defineProperty(el, 'clientWidth', { value: 800, configurable: true });
-  Object.defineProperty(el, 'clientHeight', { value: 600, configurable: true });
+  Object.defineProperty(el, 'clientWidth', { value: width, configurable: true });
+  Object.defineProperty(el, 'clientHeight', { value: height, configurable: true });
   return el;
 }
 
@@ -65,6 +36,8 @@ describe('GameMap', () => {
   beforeEach(() => {
     container = makeContainer();
   });
+
+  // ─── constructor ────────────────────────────────────────────────────────────
 
   describe('constructor', () => {
     it('should create a GameMap instance', () => {
@@ -84,21 +57,16 @@ describe('GameMap', () => {
       expect(map.gridHeight).toBe(32);
     });
 
-    it('should accept custom cell size', () => {
-      const map = new GameMap(container, { cellSize: 2 });
-      expect(map.cellSize).toBe(2);
+    it('should append a canvas element to the container', () => {
+      new GameMap(container);
+      expect(container.querySelector('canvas')).not.toBeNull();
     });
 
-    it('should use default cell size of 1', () => {
-      const map = new GameMap(container);
-      expect(map.cellSize).toBe(1);
-    });
-
-    it('should accept all MapOptions', () => {
+    it('should accept all MapOptions without throwing', () => {
       const opts: MapOptions = {
         gridWidth: 50,
         gridHeight: 50,
-        cellSize: 1,
+        cellSize: 20,
         gridColor: 0xffffff,
         groundColor: 0x123456,
       };
@@ -107,13 +75,13 @@ describe('GameMap', () => {
     });
   });
 
+  // ─── getState ───────────────────────────────────────────────────────────────
+
   describe('getState', () => {
-    it('should return initial state with zero offsets and zoom 1', () => {
+    it('should return initial state with cellSize set', () => {
       const map = new GameMap(container);
       const state = map.getState();
-      expect(state.offsetX).toBe(0);
-      expect(state.offsetZ).toBe(0);
-      expect(state.zoom).toBe(1);
+      expect(state.cellSize).toBeGreaterThan(0);
     });
 
     it('should return a copy of the state (not a reference)', () => {
@@ -122,79 +90,183 @@ describe('GameMap', () => {
       const state2 = map.getState();
       expect(state1).not.toBe(state2);
     });
+
+    it('initial offsetX should be ≤ 0 (grid left edge ≤ canvas left edge)', () => {
+      const map = new GameMap(container);
+      expect(map.getState().offsetX).toBeLessThanOrEqual(0);
+    });
+
+    it('initial offsetY should be ≤ 0 (grid top edge ≤ canvas top edge)', () => {
+      const map = new GameMap(container);
+      expect(map.getState().offsetY).toBeLessThanOrEqual(0);
+    });
   });
+
+  // ─── fill-canvas invariant ──────────────────────────────────────────────────
+
+  /**
+   * The core requirement: the grid must always cover the full canvas.
+   * offsetX + gridWidth*cellSize >= canvasWidth
+   * offsetY + gridHeight*cellSize >= canvasHeight
+   * offsetX <= 0, offsetY <= 0
+   */
+  function assertFillsCanvas(map: GameMap, canvasWidth: number, canvasHeight: number): void {
+    const { offsetX, offsetY, cellSize } = map.getState();
+    expect(offsetX).toBeLessThanOrEqual(0);
+    expect(offsetY).toBeLessThanOrEqual(0);
+    expect(offsetX + map.gridWidth * cellSize).toBeGreaterThanOrEqual(canvasWidth - FLOAT_TOLERANCE);
+    expect(offsetY + map.gridHeight * cellSize).toBeGreaterThanOrEqual(canvasHeight - FLOAT_TOLERANCE);
+  }
+
+  describe('fill-canvas invariant', () => {
+    it('initial state fills the canvas', () => {
+      const map = new GameMap(container);
+      assertFillsCanvas(map, 800, 600);
+    });
+
+    it('after pan the canvas is still filled', () => {
+      const map = new GameMap(container);
+      const { cellSize } = map.getState();
+      // Try a large pan that would expose blank space without clamping
+      map.pan(-(map.gridWidth * cellSize), 0);
+      assertFillsCanvas(map, 800, 600);
+    });
+
+    it('after zoom-out the canvas is still filled', () => {
+      const map = new GameMap(container);
+      map.zoomOut(0.9); // aggressive zoom-out
+      assertFillsCanvas(map, 800, 600);
+    });
+
+    it('after zoom-in the canvas is still filled', () => {
+      const map = new GameMap(container);
+      map.zoomIn(2); // aggressive zoom-in
+      assertFillsCanvas(map, 800, 600);
+    });
+
+    it('after resize the canvas is still filled', () => {
+      const map = new GameMap(container);
+      map.resize(1024, 768);
+      assertFillsCanvas(map, 1024, 768);
+    });
+
+    it('after center the canvas is still filled', () => {
+      const map = new GameMap(container);
+      map.pan(50, 30);
+      map.center();
+      assertFillsCanvas(map, 800, 600);
+    });
+  });
+
+  // ─── pan ────────────────────────────────────────────────────────────────────
 
   describe('pan', () => {
-    it('should update offsetX and offsetZ', () => {
+    it('should update offsetY when panning up (negative deltaY)', () => {
+      // The default 168x168 grid is taller than the 800x600 canvas at min zoom,
+      // so there IS vertical pan room.
       const map = new GameMap(container);
-      map.pan(5, 3);
-      const state = map.getState();
-      expect(state.offsetX).toBe(5);
-      expect(state.offsetZ).toBe(3);
+      const before = map.getState().offsetY;
+      map.pan(0, -20);
+      expect(map.getState().offsetY).toBeCloseTo(before - 20);
     });
 
-    it('should accumulate multiple pans', () => {
+    it('should update offsetX when panning after zoom-in', () => {
+      // After zooming in, the grid is wider than the canvas, giving X pan room.
       const map = new GameMap(container);
-      map.pan(5, 0);
-      map.pan(-2, 4);
-      const state = map.getState();
-      expect(state.offsetX).toBe(3);
-      expect(state.offsetZ).toBe(4);
+      map.zoomIn(1);
+      const before = map.getState().offsetX;
+      map.pan(-20, 0);
+      expect(map.getState().offsetX).toBeCloseTo(before - 20);
     });
 
-    it('should support negative deltas', () => {
+    it('should clamp offsetX at 0 when panning past right boundary', () => {
       const map = new GameMap(container);
-      map.pan(-10, -20);
-      expect(map.getState().offsetX).toBe(-10);
-      expect(map.getState().offsetZ).toBe(-20);
+      map.pan(9999, 0);
+      expect(map.getState().offsetX).toBe(0);
+    });
+
+    it('should clamp offsetX at min when panning past left boundary', () => {
+      const map = new GameMap(container);
+      map.zoomIn(1); // make horizontal room first
+      map.pan(-9999, 0);
+      const { offsetX, cellSize } = map.getState();
+      expect(offsetX + map.gridWidth * cellSize).toBeGreaterThanOrEqual(800 - FLOAT_TOLERANCE);
+    });
+
+    it('should accumulate multiple Y pans', () => {
+      const map = new GameMap(container);
+      const initial = map.getState().offsetY;
+      map.pan(0, -5);
+      map.pan(0, -3);
+      expect(map.getState().offsetY).toBeCloseTo(initial - 8);
     });
   });
+
+  // ─── center ─────────────────────────────────────────────────────────────────
 
   describe('center', () => {
-    it('should reset state to initial values', () => {
+    it('should reset to minimum zoom and centered position', () => {
       const map = new GameMap(container);
-      map.pan(100, 50);
-      map.zoomIn(0.3);
+      map.zoomIn(2);
+      map.pan(-100, -80);
       map.center();
       const state = map.getState();
-      expect(state.offsetX).toBe(0);
-      expect(state.offsetZ).toBe(0);
-      expect(state.zoom).toBe(1);
+      // After centering, cellSize should be the minimum (covers canvas exactly)
+      const minCell = Math.max(800 / map.gridWidth, 600 / map.gridHeight);
+      expect(state.cellSize).toBeCloseTo(minCell, 5);
+    });
+
+    it('should fill the canvas after center', () => {
+      const map = new GameMap(container);
+      map.pan(-200, -150);
+      map.center();
+      assertFillsCanvas(map, 800, 600);
     });
   });
+
+  // ─── zoom ───────────────────────────────────────────────────────────────────
 
   describe('zoom', () => {
-    it('should decrease zoom when zooming in', () => {
+    it('zoomIn should increase cellSize', () => {
       const map = new GameMap(container);
+      const before = map.getState().cellSize;
       map.zoomIn(0.1);
-      expect(map.getState().zoom).toBeCloseTo(0.9);
+      expect(map.getState().cellSize).toBeGreaterThan(before);
     });
 
-    it('should increase zoom when zooming out', () => {
+    it('zoomOut should decrease or maintain cellSize', () => {
       const map = new GameMap(container);
+      map.zoomIn(1); // zoom in first so there is room to zoom out
+      const before = map.getState().cellSize;
       map.zoomOut(0.1);
-      expect(map.getState().zoom).toBeCloseTo(1.1);
+      expect(map.getState().cellSize).toBeLessThan(before);
     });
 
-    it('should clamp zoom-in at minimum 0.1', () => {
+    it('zoomOut should not go below the minimum cell size', () => {
       const map = new GameMap(container);
-      map.zoomIn(100);
-      expect(map.getState().zoom).toBe(0.1);
-    });
-
-    it('should clamp zoom-out at maximum 5', () => {
-      const map = new GameMap(container);
-      map.zoomOut(100);
-      expect(map.getState().zoom).toBe(5);
+      map.zoomOut(100); // extreme zoom-out
+      const minCell = Math.max(800 / map.gridWidth, 600 / map.gridHeight);
+      expect(map.getState().cellSize).toBeGreaterThanOrEqual(minCell - FLOAT_TOLERANCE);
     });
   });
+
+  // ─── resize ─────────────────────────────────────────────────────────────────
 
   describe('resize', () => {
     it('should not throw when called with new dimensions', () => {
       const map = new GameMap(container);
       expect(() => map.resize(1024, 768)).not.toThrow();
     });
+
+    it('should update the canvas dimensions', () => {
+      const map = new GameMap(container);
+      map.resize(1024, 768);
+      // After resize, the fill-canvas invariant must hold for the new size
+      assertFillsCanvas(map, 1024, 768);
+    });
   });
+
+  // ─── render ─────────────────────────────────────────────────────────────────
 
   describe('render', () => {
     it('should not throw when called explicitly', () => {
@@ -203,16 +275,46 @@ describe('GameMap', () => {
     });
   });
 
+  // ─── dispose ────────────────────────────────────────────────────────────────
+
   describe('dispose', () => {
     it('should not throw when called', () => {
       const map = new GameMap(container);
       expect(() => map.dispose()).not.toThrow();
     });
 
-    it('should be callable multiple times without error', () => {
+    it('should remove the canvas from the container', () => {
       const map = new GameMap(container);
+      expect(container.querySelector('canvas')).not.toBeNull();
       map.dispose();
-      expect(() => map.dispose()).not.toThrow();
+      expect(container.querySelector('canvas')).toBeNull();
+    });
+  });
+
+  // ─── getCellCoordinate ───────────────────────────────────────────────────────
+
+  describe('getCellCoordinate', () => {
+    it('should return the correct world coordinate for a cell', () => {
+      const map = new GameMap(container);
+      const coord = map.getCellCoordinate(3, 5);
+      expect(coord.x).toBe(3);
+      expect(coord.y).toBe(5);
+    });
+
+    it('should return correct chunk coords via coordinate-system', () => {
+      const map = new GameMap(container);
+      // Cell (16, 16) is at the start of chunk (1,1) when CHUNK_SIZE=16
+      const coord = map.getCellCoordinate(16, 16);
+      expect(coord.chunk.cx).toBe(1);
+      expect(coord.chunk.cy).toBe(1);
+    });
+
+    it('should return correct local coords via coordinate-system', () => {
+      const map = new GameMap(container);
+      const coord = map.getCellCoordinate(17, 3);
+      // local x = 17 % 16 = 1, local y = 3 % 16 = 3
+      expect(coord.local.lx).toBe(1);
+      expect(coord.local.ly).toBe(3);
     });
   });
 });
