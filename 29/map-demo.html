@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>地图组件 Demo – Auto Game</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      padding: 12px 20px;
+      background: #16213e;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1.1rem; }
+    header a {
+      color: #a0aec0;
+      font-size: 0.85rem;
+      text-decoration: none;
+    }
+    header a:hover { color: #fff; }
+    #map-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    #map-container canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+    #controller-wrap {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+    }
+  </style>
+  <script type="module" crossorigin src="/auto-game/29/assets/mapDemo-BS-n_gMI.js"></script>
+  <link rel="modulepreload" crossorigin href="/auto-game/29/assets/modulepreload-polyfill-B5Qt9EMX.js">
+</head>
+<body>
+  <header>
+    <a href="./">← 返回首页</a>
+    <h1>🗺 地图组件 + 控制器 Demo</h1>
+    <span style="font-size:0.8rem;color:#718096">拖动地图使用右下角控制器进行平移/缩放</span>
+  </header>
+  <div id="map-container">
+    <div id="controller-wrap"></div>
+  </div>
+</body>
+</html>
