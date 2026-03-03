@@ -18,12 +18,14 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
+    "@types/three": "0.183.0",
     "@vitest/ui": "^4.0.18",
     "jsdom": "^28.1.0",
     "typescript": "^5.3.0",
     "vitest": "^1.0.0"
   },
   "dependencies": {
-    "@auto-game/logic": "workspace:*"
+    "@auto-game/logic": "workspace:*",
+    "three": "0.183.2"
   }
 }

@@ -4,22 +4,63 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 /** Floating-point tolerance for grid-edge comparisons (avoids sub-pixel rounding failures). */
 const FLOAT_TOLERANCE = 0.001;
 
-// ── Mock the 2D canvas context so tests run without a real rendering engine ──
-const fakeCtx = {
-  clearRect: vi.fn(),
-  fillRect: vi.fn(),
-  strokeRect: vi.fn(),
-  beginPath: vi.fn(),
-  moveTo: vi.fn(),
-  lineTo: vi.fn(),
-  stroke: vi.fn(),
-  fillStyle: '',
-  strokeStyle: '',
-  lineWidth: 1,
-};
+// ── Mock Three.js so tests run without a real WebGL context ──────────────────
+vi.mock('three', () => {
+  // A minimal Vector3-like object that supports .set()
+  const makeVec3 = (x = 0, y = 0, z = 0) => ({ x, y, z, set: vi.fn() });
 
-// Patch HTMLCanvasElement.prototype.getContext before any tests run.
-HTMLCanvasElement.prototype.getContext = vi.fn(() => fakeCtx) as never;
+  // Factory for the WebGLRenderer mock; each instance gets its own canvas so
+  // that DOM queries on individual containers work correctly.
+  const WebGLRenderer = vi.fn(function (this: Record<string, unknown>) {
+    const canvas = document.createElement('canvas');
+    this.domElement = canvas;
+    this.setSize = vi.fn((w: number, h: number) => {
+      canvas.width = w;
+      canvas.height = h;
+    });
+    this.render = vi.fn();
+    this.dispose = vi.fn();
+  });
+
+  const OrthographicCamera = vi.fn(function (this: Record<string, unknown>) {
+    this.left = 0; this.right = 0; this.top = 0; this.bottom = 0;
+    this.position = makeVec3();
+    this.up = makeVec3();
+    this.updateProjectionMatrix = vi.fn();
+    this.lookAt = vi.fn();
+  });
+
+  const Scene = vi.fn(function (this: Record<string, unknown>) {
+    this.add = vi.fn();
+  });
+
+  const PlaneGeometry = vi.fn();
+  const MeshBasicMaterial = vi.fn();
+  const Mesh = vi.fn(function (this: Record<string, unknown>) {
+    this.rotation = { x: 0 };
+    this.position = makeVec3();
+  });
+
+  const BufferGeometry = vi.fn(function (this: Record<string, unknown>) {
+    this.setAttribute = vi.fn();
+  });
+  const Float32BufferAttribute = vi.fn();
+  const LineBasicMaterial = vi.fn();
+  const LineSegments = vi.fn();
+
+  return {
+    WebGLRenderer,
+    OrthographicCamera,
+    Scene,
+    PlaneGeometry,
+    MeshBasicMaterial,
+    Mesh,
+    BufferGeometry,
+    Float32BufferAttribute,
+    LineBasicMaterial,
+    LineSegments,
+  };
+});
 
 import { GameMap, MapOptions } from './map';
 
@@ -292,6 +333,40 @@ describe('GameMap', () => {
   });
 
   // ─── getCellCoordinate ───────────────────────────────────────────────────────
+
+  describe('view angle', () => {
+    it('getTiltAngle should return 0 initially', () => {
+      const map = new GameMap(container);
+      expect(map.getTiltAngle()).toBe(0);
+    });
+
+    it('tiltView should not throw', () => {
+      const map = new GameMap(container);
+      expect(() => map.tiltView()).not.toThrow();
+    });
+
+    it('tiltView should accept a custom angle without throwing', () => {
+      const map = new GameMap(container);
+      expect(() => map.tiltView(Math.PI / 3)).not.toThrow();
+    });
+
+    it('topDownView should not throw', () => {
+      const map = new GameMap(container);
+      expect(() => map.topDownView()).not.toThrow();
+    });
+
+    it('topDownView after tiltView should not throw', () => {
+      const map = new GameMap(container);
+      map.tiltView();
+      expect(() => map.topDownView()).not.toThrow();
+    });
+
+    it('calling tiltView twice should not throw (cancels prior animation)', () => {
+      const map = new GameMap(container);
+      map.tiltView();
+      expect(() => map.tiltView(Math.PI / 6)).not.toThrow();
+    });
+  });
 
   describe('getCellCoordinate', () => {
     it('should return the correct world coordinate for a cell', () => {
