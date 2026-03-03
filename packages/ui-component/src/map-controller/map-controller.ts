@@ -10,12 +10,13 @@ export interface MapControllerOptions {
 }
 
 /**
- * A gamepad-style controller that provides pan and zoom buttons for a GameMap.
+ * A gamepad-style controller that provides pan, zoom, and view-angle buttons
+ * for a GameMap.
  *
  * Button layout:
- *   Row 1: [ ↑  Pan Up  ]
- *   Row 2: [ ← Pan Left ] [ ⊙ Center ] [ → Pan Right ]
- *   Row 3: [ + Zoom In  ] [ ↓ Pan Down ] [ − Zoom Out ]
+ *   Row 1: [ ⊿ Tilt View ] [ ↑  Pan Up   ] [ ⊞ Top Down  ]
+ *   Row 2: [ ←  Pan Left ] [ ⊙  Center   ] [ →  Pan Right ]
+ *   Row 3: [ +  Zoom In  ] [ ↓  Pan Down  ] [ −  Zoom Out  ]
  */
 export class MapController {
   private container: HTMLElement;
@@ -81,13 +82,27 @@ export class MapController {
       row: number;
       action: () => void;
     }> = [
-      // Row 1 – col 2
+      // Row 1 – col 1, 2, 3
+      {
+        label: '⊿',
+        title: 'Tilt View',
+        col: 1,
+        row: 1,
+        action: () => this.map?.tiltView(),
+      },
       {
         label: '↑',
         title: 'Pan Up',
         col: 2,
         row: 1,
         action: () => this.map?.pan(0, -this.panStep),
+      },
+      {
+        label: '⊞',
+        title: 'Top Down',
+        col: 3,
+        row: 1,
+        action: () => this.map?.topDownView(),
       },
       // Row 2 – col 1, 2, 3
       {

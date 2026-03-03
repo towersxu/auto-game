@@ -334,6 +334,40 @@ describe('GameMap', () => {
 
   // ─── getCellCoordinate ───────────────────────────────────────────────────────
 
+  describe('view angle', () => {
+    it('getTiltAngle should return 0 initially', () => {
+      const map = new GameMap(container);
+      expect(map.getTiltAngle()).toBe(0);
+    });
+
+    it('tiltView should not throw', () => {
+      const map = new GameMap(container);
+      expect(() => map.tiltView()).not.toThrow();
+    });
+
+    it('tiltView should accept a custom angle without throwing', () => {
+      const map = new GameMap(container);
+      expect(() => map.tiltView(Math.PI / 3)).not.toThrow();
+    });
+
+    it('topDownView should not throw', () => {
+      const map = new GameMap(container);
+      expect(() => map.topDownView()).not.toThrow();
+    });
+
+    it('topDownView after tiltView should not throw', () => {
+      const map = new GameMap(container);
+      map.tiltView();
+      expect(() => map.topDownView()).not.toThrow();
+    });
+
+    it('calling tiltView twice should not throw (cancels prior animation)', () => {
+      const map = new GameMap(container);
+      map.tiltView();
+      expect(() => map.tiltView(Math.PI / 6)).not.toThrow();
+    });
+  });
+
   describe('getCellCoordinate', () => {
     it('should return the correct world coordinate for a cell', () => {
       const map = new GameMap(container);

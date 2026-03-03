@@ -10,11 +10,14 @@ function makeMapStub(): GameMap {
     center: vi.fn(),
     zoomIn: vi.fn(),
     zoomOut: vi.fn(),
+    tiltView: vi.fn(),
+    topDownView: vi.fn(),
     getState: vi.fn(() => ({ offsetX: 0, offsetY: 0, cellSize: 5 })),
     render: vi.fn(),
     resize: vi.fn(),
     dispose: vi.fn(),
     getCellCoordinate: vi.fn(),
+    getTiltAngle: vi.fn(() => 0),
     gridWidth: 168,
     gridHeight: 168,
   } as unknown as GameMap;
@@ -59,10 +62,10 @@ describe('MapController', () => {
       expect(ctrl.zoomStep).toBeCloseTo(0.2);
     });
 
-    it('should render 7 buttons', () => {
+    it('should render 9 buttons', () => {
       new MapController(container);
       const buttons = container.querySelectorAll('button');
-      expect(buttons.length).toBe(7);
+      expect(buttons.length).toBe(9);
     });
   });
 
@@ -101,6 +104,16 @@ describe('MapController', () => {
     it('should have a Zoom Out button', () => {
       new MapController(container);
       expect(container.querySelector('[aria-label="Zoom Out"]')).not.toBeNull();
+    });
+
+    it('should have a Tilt View button', () => {
+      new MapController(container);
+      expect(container.querySelector('[aria-label="Tilt View"]')).not.toBeNull();
+    });
+
+    it('should have a Top Down button', () => {
+      new MapController(container);
+      expect(container.querySelector('[aria-label="Top Down"]')).not.toBeNull();
     });
   });
 
@@ -163,6 +176,16 @@ describe('MapController', () => {
     it('Zoom Out should call map.zoomOut', () => {
       container.querySelector<HTMLButtonElement>('[aria-label="Zoom Out"]')!.click();
       expect(map.zoomOut).toHaveBeenCalledWith(0.1);
+    });
+
+    it('Tilt View should call map.tiltView', () => {
+      container.querySelector<HTMLButtonElement>('[aria-label="Tilt View"]')!.click();
+      expect(map.tiltView).toHaveBeenCalled();
+    });
+
+    it('Top Down should call map.topDownView', () => {
+      container.querySelector<HTMLButtonElement>('[aria-label="Top Down"]')!.click();
+      expect(map.topDownView).toHaveBeenCalled();
     });
   });
 

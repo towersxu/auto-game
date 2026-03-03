@@ -62,6 +62,12 @@ export class GameMap {
 
   private state: MapState;
 
+  /** Current camera tilt angle in radians (0 = pure top-down, π/4 = 45° isometric tilt). */
+  private _tiltAngle = 0;
+
+  /** ID of the in-progress tilt animation (null when idle). */
+  private _animId: number | null = null;
+
   constructor(container: HTMLElement, options: MapOptions = {}) {
     this.gridWidth = options.gridWidth ?? 168;
     this.gridHeight = options.gridHeight ?? 168;
@@ -205,8 +211,17 @@ export class GameMap {
     this.camera.bottom = -halfH;
     this.camera.updateProjectionMatrix();
 
-    // Reposition the camera directly above the view centre.
-    this.camera.position.set(worldCX, CAMERA_HEIGHT, worldCZ);
+    // Apply tilt: camera orbits over the target point in the vertical XZ plane.
+    // At theta=0 the camera is directly above (pure top-down); at theta>0 it
+    // is pulled back along –Z (south) and down, giving an isometric-like view.
+    const theta = this._tiltAngle;
+    this.camera.position.set(
+      worldCX,
+      CAMERA_HEIGHT * Math.cos(theta),
+      worldCZ - CAMERA_HEIGHT * Math.sin(theta),
+    );
+    // up vector: orthogonal to look direction, keeps world –Z at top of screen.
+    this.camera.up.set(0, -Math.sin(theta), -Math.cos(theta));
     this.camera.lookAt(worldCX, 0, worldCZ);
 
     this.renderer.render(this.scene, this.camera);
@@ -214,8 +229,58 @@ export class GameMap {
 
   /** Remove the canvas element and release Three.js resources. */
   dispose(): void {
+    if (this._animId !== null) {
+      cancelAnimationFrame(this._animId);
+      this._animId = null;
+    }
     this.renderer.dispose();
     this.renderer.domElement.remove();
+  }
+
+  // ─── view-angle API ───────────────────────────────────────────────────────
+
+  /** Return the current camera tilt angle in radians (0 = pure top-down). */
+  getTiltAngle(): number {
+    return this._tiltAngle;
+  }
+
+  /**
+   * Smoothly animate the camera to a tilted (isometric-like) orthographic view.
+   * @param angle - Target tilt angle in radians (default π/4 = 45°).
+   */
+  tiltView(angle = Math.PI / 4): void {
+    this._animateTilt(this._tiltAngle, angle);
+  }
+
+  /** Smoothly animate the camera back to a pure top-down (俯视) view. */
+  topDownView(): void {
+    this._animateTilt(this._tiltAngle, 0);
+  }
+
+  /**
+   * Animate the tilt angle from `from` to `to` over `durationMs` milliseconds.
+   * Any in-progress animation is cancelled before starting the new one.
+   */
+  private _animateTilt(from: number, to: number, durationMs = 600): void {
+    if (this._animId !== null) {
+      cancelAnimationFrame(this._animId);
+      this._animId = null;
+    }
+    if (from === to) return;
+    const startTime = performance.now();
+    const step = (now: number): void => {
+      const t = Math.min((now - startTime) / durationMs, 1);
+      // Smooth-step easing: t²(3 − 2t)
+      const eased = t * t * (3 - 2 * t);
+      this._tiltAngle = from + (to - from) * eased;
+      this.render();
+      if (t < 1) {
+        this._animId = requestAnimationFrame(step);
+      } else {
+        this._animId = null;
+      }
+    };
+    this._animId = requestAnimationFrame(step);
   }
 
   // ─── private helpers ──────────────────────────────────────────────────────
