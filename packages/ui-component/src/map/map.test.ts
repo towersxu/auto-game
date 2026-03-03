@@ -18,6 +18,7 @@ vi.mock('three', () => {
       canvas.width = w;
       canvas.height = h;
     });
+    this.setPixelRatio = vi.fn();
     this.render = vi.fn();
     this.dispose = vi.fn();
   });
@@ -32,10 +33,19 @@ vi.mock('three', () => {
 
   const Scene = vi.fn(function (this: Record<string, unknown>) {
     this.add = vi.fn();
+    this.background = null;
+  });
+
+  const Color = vi.fn();
+
+  const AmbientLight = vi.fn(function (this: Record<string, unknown>) {});
+
+  const DirectionalLight = vi.fn(function (this: Record<string, unknown>) {
+    this.position = makeVec3();
   });
 
   const PlaneGeometry = vi.fn();
-  const MeshBasicMaterial = vi.fn();
+  const MeshLambertMaterial = vi.fn();
   const Mesh = vi.fn(function (this: Record<string, unknown>) {
     this.rotation = { x: 0 };
     this.position = makeVec3();
@@ -52,8 +62,11 @@ vi.mock('three', () => {
     WebGLRenderer,
     OrthographicCamera,
     Scene,
+    Color,
+    AmbientLight,
+    DirectionalLight,
     PlaneGeometry,
-    MeshBasicMaterial,
+    MeshLambertMaterial,
     Mesh,
     BufferGeometry,
     Float32BufferAttribute,
