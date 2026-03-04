@@ -18,6 +18,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         mapDemo: resolve(__dirname, 'map-demo.html'),
+        hexDemo: resolve(__dirname, 'hex-demo.html'),
       }
     }
   }
