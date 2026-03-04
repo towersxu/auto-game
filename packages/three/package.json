@@ -1,0 +1,48 @@
+{
+  "name": "three",
+  "version": "0.183.2",
+  "description": "JavaScript 3D library",
+  "type": "module",
+  "main": "./build/three.cjs",
+  "module": "./build/three.module.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./build/three.module.js",
+      "require": "./build/three.cjs"
+    },
+    "./examples/fonts/*": "./examples/fonts/*",
+    "./examples/jsm/*": "./examples/jsm/*",
+    "./addons": "./examples/jsm/Addons.js",
+    "./addons/*": "./examples/jsm/*",
+    "./src/*": "./src/*",
+    "./webgpu": "./build/three.webgpu.js",
+    "./tsl": "./build/three.tsl.js"
+  },
+  "sideEffects": [
+    "./src/nodes/**/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mrdoob/three.js"
+  },
+  "keywords": [
+    "three",
+    "three.js",
+    "javascript",
+    "3d",
+    "virtual-reality",
+    "augmented-reality",
+    "webgl",
+    "webgl2",
+    "webaudio",
+    "webgpu",
+    "webxr",
+    "canvas",
+    "svg",
+    "html5"
+  ],
+  "author": "mrdoob",
+  "license": "MIT"
+}

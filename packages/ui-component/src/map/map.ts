@@ -76,8 +76,9 @@ export class GameMap {
     const h = container.clientHeight || 1;
 
     // ── Three.js renderer ────────────────────────────────────────────────────
-    this.renderer = new THREE.WebGLRenderer({ antialias: false });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(w, h);
+    this.renderer.setPixelRatio(window.devicePixelRatio ?? 1);
     container.appendChild(this.renderer.domElement);
 
     // ── Orthographic camera – fixed top-down perspective ─────────────────────
@@ -293,9 +294,19 @@ export class GameMap {
     const groundColor = toColorHex(options.groundColor ?? 0x4a7c59);
     const gridColor = toColorHex(options.gridColor ?? 0x888888);
 
+    // Scene background (sky colour, visible when camera is tilted)
+    this.scene.background = new THREE.Color(0x87ceeb);
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    this.scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(this.gridWidth / 2, CAMERA_HEIGHT / 2, -this.gridHeight);
+    this.scene.add(dirLight);
+
     // Ground plane
     const groundGeo = new THREE.PlaneGeometry(this.gridWidth, this.gridHeight);
-    const groundMat = new THREE.MeshBasicMaterial({ color: groundColor });
+    const groundMat = new THREE.MeshLambertMaterial({ color: groundColor });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(this.gridWidth / 2, 0, this.gridHeight / 2);
