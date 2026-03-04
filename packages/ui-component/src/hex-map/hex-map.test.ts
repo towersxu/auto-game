@@ -380,7 +380,7 @@ describe('HexMap', () => {
 import { FogManager } from './fog.js';
 
 describe('FogManager', () => {
-  it('initialises all cells as UNCHARTED', () => {
+  it('initializes all cells as UNCHARTED', () => {
     const fm = new FogManager(5, 5);
     for (let r = 0; r < 5; r++) {
       for (let q = 0; q < 5; q++) {
@@ -436,7 +436,7 @@ describe('terrainColor', () => {
     expect(typeof terrainColor(0.1)).toBe('number');
   });
 
-  it('SUBMERGED colour is blue-ish', () => {
+  it('SUBMERGED color is blue-ish', () => {
     const c = terrainColor(0.1);
     const b = c & 0xff;
     const g = (c >> 8)  & 0xff;
@@ -446,7 +446,7 @@ describe('terrainColor', () => {
     expect(b).toBeGreaterThan(g);
   });
 
-  it('BASELAND colour is green-ish', () => {
+  it('BASELAND color is green-ish', () => {
     const c = terrainColor(0.4);
     const b = c & 0xff;
     const g = (c >> 8)  & 0xff;
@@ -533,11 +533,11 @@ describe('hexDistance', () => {
 });
 
 describe('getNeighbors', () => {
-  it('returns exactly 6 neighbours', () => {
+  it('returns exactly 6 neighbors', () => {
     expect(getNeighbors(0, 0).length).toBe(6);
   });
 
-  it('each neighbour is at distance 1', () => {
+  it('each neighbor is at distance 1', () => {
     for (const n of getNeighbors(2, 3)) {
       expect(hexDistance(2, 3, n.q, n.r)).toBe(1);
     }
@@ -567,7 +567,7 @@ describe('hexCornerWorld', () => {
 });
 
 describe('getDirectionIndex', () => {
-  it('returns correct direction index for E neighbour', () => {
+  it('returns correct direction index for E neighbor', () => {
     expect(getDirectionIndex(0, 0, 1, 0)).toBe(0);
   });
 

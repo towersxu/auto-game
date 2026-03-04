@@ -126,7 +126,7 @@ export function hexCornerWorld(
 
 /**
  * Return the direction index (0–5) from hex A to adjacent hex B.
- * Returns -1 if B is not a direct neighbour of A.
+ * Returns -1 if B is not a direct neighbor of A.
  */
 export function getDirectionIndex(aq: number, ar: number, bq: number, br: number): number {
   const dq = bq - aq;

@@ -1,5 +1,5 @@
 /**
- * Terrain module – maps noise values to elevation tiers and colours.
+ * Terrain module – maps noise values to elevation tiers and colors.
  *
  * Elevation tiers (based on normalized noise value 0–1):
  *   SUBMERGED  : < 0.30  – water (deep blue → light blue)
@@ -34,8 +34,8 @@ export function getElevationTier(noiseValue: number): ElevationTier {
 }
 
 /**
- * Colour lookup tables for each tier.
- * Each entry is [low-colour, high-colour] as 0xRRGGBB integers.
+ * Color lookup tables for each tier.
+ * Each entry is [low-color, high-color] as 0xRRGGBB integers.
  * The noise value within the tier's range interpolates between the two.
  */
 const TIER_COLOUR_RANGE: Readonly<Record<ElevationTier, [number, number]>> = {
@@ -50,7 +50,7 @@ function normalise(value: number, lo: number, hi: number): number {
   return Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
 }
 
-/** Linear interpolate each RGB channel between two hex colours. */
+/** Linear interpolate each RGB channel between two hex colors. */
 export function lerpColor(colorA: number, colorB: number, t: number): number {
   const ar = (colorA >> 16) & 0xff;
   const ag = (colorA >> 8) & 0xff;
@@ -65,8 +65,8 @@ export function lerpColor(colorA: number, colorB: number, t: number): number {
 }
 
 /**
- * Return the 0xRRGGBB terrain colour for a given noise value.
- * The colour is interpolated within the tier's colour range.
+ * Return the 0xRRGGBB terrain color for a given noise value.
+ * The color is interpolated within the tier's color range.
  * An optional `jitter` value (0–1) adds per-cell hue variation.
  */
 export function terrainColor(noiseValue: number, jitter = 0): number {

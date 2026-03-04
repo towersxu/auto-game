@@ -8,7 +8,7 @@
  */
 import { HexMap, ElevationTier, FogState } from '@auto-game/ui-component';
 
-// ── Initialise map ────────────────────────────────────────────────────────────
+// ── Initialize map ────────────────────────────────────────────────────────────
 
 const mapContainer = document.getElementById('map-container') as HTMLElement;
 

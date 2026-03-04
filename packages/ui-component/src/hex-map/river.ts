@@ -6,7 +6,7 @@
  *
  * Algorithm:
  *  1. Pick the top-N highest hexes as source candidates.
- *  2. From each source, greedily descend to the neighbour with the lowest
+ *  2. From each source, greedily descend to the neighbor with the lowest
  *     elevation (with a small random tie-break to avoid perfectly straight rivers).
  *  3. Record each traversed edge as a pair of (hex-A, hex-B) axial coordinates.
  *  4. Stop when reaching a SUBMERGED tile, the map boundary, or a visited edge.
@@ -92,7 +92,7 @@ export function generateRivers(
       // Stop when reaching submerged terrain.
       if (getElevationTier(currentElev) === ElevationTier.SUBMERGED) break;
 
-      // Find the neighbour with the lowest elevation.
+      // Find the neighbor with the lowest elevation.
       let bestDir = -1;
       let bestElev = currentElev; // must flow downhill
       for (let d = 0; d < 6; d++) {
