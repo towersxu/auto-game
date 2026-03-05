@@ -8,21 +8,42 @@
 
 import { Coordinate } from './coordinate';
 import type { City } from './city';
+import { ResourceModule } from './resource-module';
+import type { TileResourceData, ResourceModuleConfig } from './resource-module';
 
 /**
  * WorldMap manages the global map boundaries and tracks which city occupies
  * each coordinate.
  */
+/** Options for WorldMap construction. */
+export interface WorldMapOptions {
+  /** Seed string for deterministic resource generation. */
+  seed?: string;
+  /** Custom resource module configuration. */
+  resourceConfig?: Partial<ResourceModuleConfig>;
+}
+
 export class WorldMap {
   public readonly width: number;
   public readonly height: number;
+  public readonly seed: string;
 
   private readonly _occupiedMap: Map<string, City>;
+  private readonly _resourceMap: Map<string, TileResourceData>;
 
-  constructor(width: number, height: number) {
+  constructor(width: number, height: number, options?: WorldMapOptions) {
     this.width = width;
     this.height = height;
     this._occupiedMap = new Map();
+
+    // Initialise deterministic resource generation.
+    this.seed = options?.seed ?? Date.now().toString();
+    const resourceModule = new ResourceModule(options?.resourceConfig);
+    this._resourceMap = resourceModule.generateForGrid(
+      this.seed,
+      this.width,
+      this.height,
+    );
   }
 
   /**
@@ -74,5 +95,22 @@ export class WorldMap {
    */
   getOccupant(coord: Coordinate): City | undefined {
     return this._occupiedMap.get(coord.toString());
+  }
+
+  /**
+   * Get the resource data for the given coordinate.
+   *
+   * @returns The resource data, or undefined if the coordinate is out of bounds.
+   */
+  getResources(coord: Coordinate): TileResourceData | undefined {
+    return this._resourceMap.get(coord.toString());
+  }
+
+  /**
+   * Read-only view of all tile resource mappings.
+   * Keys are coordinate string representations (e.g. "3,4").
+   */
+  get resourceMap(): ReadonlyMap<string, TileResourceData> {
+    return this._resourceMap;
   }
 }

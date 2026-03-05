@@ -71,6 +71,9 @@ export class GameMap {
   /** Map of per-cell colour overlay meshes keyed by "col:row". */
   private _cellMeshes: Map<string, THREE.Mesh> = new Map();
 
+  /** Map of per-cell label sprites keyed by "col:row". */
+  private _labelSprites: Map<string, THREE.Sprite> = new Map();
+
   /** Optional handler called when a grid cell is clicked. */
   private _clickHandler: ((col: number, row: number) => void) | null = null;
 
@@ -228,6 +231,74 @@ export class GameMap {
   }
 
   /**
+   * Set a text + icon label overlay for a single grid cell.
+   * The label is rendered as a canvas-textured sprite placed just above
+   * the cell surface.
+   *
+   * @param col   - 0-based column index.
+   * @param row   - 0-based row index.
+   * @param score - Score text to display at top-right (e.g. "8").
+   * @param icons - Array of emoji / short strings to display in the centre.
+   * @param scoreColor - Optional CSS colour for the score text (default "#FFD700").
+   */
+  setCellLabel(
+    col: number,
+    row: number,
+    score: string,
+    icons: string[],
+    scoreColor = '#FFD700',
+  ): void {
+    const key = `${col}:${row}`;
+    const existing = this._labelSprites.get(key);
+    if (existing) {
+      this.scene.remove(existing);
+      existing.geometry.dispose();
+      (existing.material as THREE.SpriteMaterial).map?.dispose();
+      (existing.material as THREE.SpriteMaterial).dispose();
+      this._labelSprites.delete(key);
+    }
+
+    // Draw the label onto a 2D canvas and use it as a sprite texture.
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Score — top-right
+    ctx.font = 'bold 28px sans-serif';
+    ctx.fillStyle = scoreColor;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText(score, size - 6, 6);
+
+    // Icons — centred, wrapping into rows of up to 3
+    const iconSize = 28;
+    const cols = Math.min(icons.length, 3);
+    const rows = Math.ceil(icons.length / 3);
+    const startX = (size - cols * iconSize) / 2;
+    const startY = (size - rows * iconSize) / 2 + 8; // shift slightly below centre
+    ctx.font = `${iconSize - 4}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    icons.forEach((icon, i) => {
+      const r = Math.floor(i / 3);
+      const c = i % 3;
+      ctx.fillText(icon, startX + c * iconSize + iconSize / 2, startY + r * iconSize + iconSize / 2);
+    });
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    const mat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(0.9, 0.9, 1);
+    sprite.position.set(col + 0.5, 0.02, row + 0.5);
+    this.scene.add(sprite);
+    this._labelSprites.set(key, sprite);
+    this.render();
+  }
+
+  /**
    * Register a callback that fires whenever the user clicks a grid cell.
    * The callback receives 0-based (col, row) coordinates.
    * Passing null removes any previously registered handler.
@@ -288,6 +359,13 @@ export class GameMap {
       (mesh.material as THREE.Material).dispose();
     }
     this._cellMeshes.clear();
+    for (const sprite of this._labelSprites.values()) {
+      this.scene.remove(sprite);
+      sprite.geometry.dispose();
+      (sprite.material as THREE.SpriteMaterial).map?.dispose();
+      (sprite.material as THREE.SpriteMaterial).dispose();
+    }
+    this._labelSprites.clear();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
