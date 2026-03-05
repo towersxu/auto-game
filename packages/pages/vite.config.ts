@@ -9,6 +9,7 @@ export default defineConfig({
       '@auto-game/ui-component': resolve(__dirname, '../ui-component/src'),
       '@auto-game/logic': resolve(__dirname, '../logic/src'),
       '@auto-game/data-base': resolve(__dirname, '../data-base/src'),
+      '@auto-game/city-territory': resolve(__dirname, '../city-territory/src'),
     }
   },
   build: {
@@ -18,6 +19,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         mapDemo: resolve(__dirname, 'map-demo.html'),
+        cityTerritoryDemo: resolve(__dirname, 'city-territory-demo.html'),
       }
     }
   }

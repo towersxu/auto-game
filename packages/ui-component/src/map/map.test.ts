@@ -33,6 +33,7 @@ vi.mock('three', () => {
 
   const Scene = vi.fn(function (this: Record<string, unknown>) {
     this.add = vi.fn();
+    this.remove = vi.fn();
     this.background = null;
   });
 
@@ -44,11 +45,20 @@ vi.mock('three', () => {
     this.position = makeVec3();
   });
 
-  const PlaneGeometry = vi.fn();
-  const MeshLambertMaterial = vi.fn();
+  const PlaneGeometry = vi.fn(function (this: Record<string, unknown>) {
+    this.dispose = vi.fn();
+  });
+  const MeshLambertMaterial = vi.fn(function (this: Record<string, unknown>) {
+    this.dispose = vi.fn();
+  });
+  const MeshBasicMaterial = vi.fn(function (this: Record<string, unknown>) {
+    this.dispose = vi.fn();
+  });
   const Mesh = vi.fn(function (this: Record<string, unknown>) {
     this.rotation = { x: 0 };
     this.position = makeVec3();
+    this.geometry = { dispose: vi.fn() };
+    this.material = { dispose: vi.fn() };
   });
 
   const BufferGeometry = vi.fn(function (this: Record<string, unknown>) {
@@ -67,6 +77,7 @@ vi.mock('three', () => {
     DirectionalLight,
     PlaneGeometry,
     MeshLambertMaterial,
+    MeshBasicMaterial,
     Mesh,
     BufferGeometry,
     Float32BufferAttribute,
@@ -403,6 +414,109 @@ describe('GameMap', () => {
       // local x = 17 % 16 = 1, local y = 3 % 16 = 3
       expect(coord.local.lx).toBe(1);
       expect(coord.local.ly).toBe(3);
+    });
+  });
+
+  // ─── setCellColor ────────────────────────────────────────────────────────────
+
+  describe('setCellColor', () => {
+    it('should not throw when setting a colour', () => {
+      const map = new GameMap(container);
+      expect(() => map.setCellColor(0, 0, 0xff0000)).not.toThrow();
+    });
+
+    it('should not throw when clearing a colour with null', () => {
+      const map = new GameMap(container);
+      map.setCellColor(0, 0, 0xff0000);
+      expect(() => map.setCellColor(0, 0, null)).not.toThrow();
+    });
+
+    it('should allow setting different colours for different cells', () => {
+      const map = new GameMap(container);
+      expect(() => {
+        map.setCellColor(0, 0, 0xff0000);
+        map.setCellColor(1, 1, 0x00ff00);
+        map.setCellColor(2, 2, 0x0000ff);
+      }).not.toThrow();
+    });
+
+    it('should allow overwriting an existing colour', () => {
+      const map = new GameMap(container);
+      map.setCellColor(0, 0, 0xff0000);
+      expect(() => map.setCellColor(0, 0, 0x00ff00)).not.toThrow();
+    });
+
+    it('clearing a cell that has no colour should not throw', () => {
+      const map = new GameMap(container);
+      expect(() => map.setCellColor(0, 0, null)).not.toThrow();
+    });
+  });
+
+  // ─── onCellClick ─────────────────────────────────────────────────────────────
+
+  describe('onCellClick', () => {
+    it('should not throw when registering a callback', () => {
+      const map = new GameMap(container);
+      expect(() => map.onCellClick(() => { /* noop */ })).not.toThrow();
+    });
+
+    it('should not throw when passing null to remove a handler', () => {
+      const map = new GameMap(container);
+      map.onCellClick(() => { /* noop */ });
+      expect(() => map.onCellClick(null)).not.toThrow();
+    });
+
+    it('should invoke the callback with col and row when the canvas is clicked', () => {
+      const map = new GameMap(container, { gridWidth: 10, gridHeight: 10, cellSize: 80 });
+      // canvas: 800x600, grid: 10x10 cells at 80px each = 800x800 (taller than canvas)
+      // offsetX = 0, offsetY = −100 (grid top is 100px above canvas top)
+      // Cell (1, 2) centre is at canvas (1*80+40, −100+2*80+40) = (120, 100)
+      const calls: Array<{ col: number; row: number }> = [];
+      map.onCellClick((col, row) => calls.push({ col, row }));
+
+      const canvas = container.querySelector('canvas') as HTMLCanvasElement;
+      Object.defineProperty(canvas, 'getBoundingClientRect', {
+        value: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+        configurable: true,
+      });
+      canvas.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, clientX: 120, clientY: 100 }),
+      );
+      expect(calls.length).toBe(1);
+      expect(calls[0].col).toBe(1);
+      expect(calls[0].row).toBe(2);
+    });
+
+    it('should not invoke the callback when clicking outside the grid', () => {
+      const map = new GameMap(container, { gridWidth: 5, gridHeight: 5, cellSize: 50 });
+      const calls: Array<{ col: number; row: number }> = [];
+      map.onCellClick((col, row) => calls.push({ col, row }));
+
+      const canvas = container.querySelector('canvas') as HTMLCanvasElement;
+      Object.defineProperty(canvas, 'getBoundingClientRect', {
+        value: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+        configurable: true,
+      });
+      // Click far outside the 5x5 grid (col ~= 1600/50 which is >> 5)
+      canvas.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, clientX: 1600, clientY: 1600 }),
+      );
+      expect(calls.length).toBe(0);
+    });
+
+    it('should not invoke the callback when no handler is registered', () => {
+      new GameMap(container);
+      // No handler registered; clicking should be a no-op.
+      const canvas = container.querySelector('canvas') as HTMLCanvasElement;
+      Object.defineProperty(canvas, 'getBoundingClientRect', {
+        value: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+        configurable: true,
+      });
+      expect(() =>
+        canvas.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, clientX: 100, clientY: 100 }),
+        ),
+      ).not.toThrow();
     });
   });
 });
