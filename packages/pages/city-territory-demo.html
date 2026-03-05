@@ -62,6 +62,11 @@
       width: 100% !important;
       height: 100% !important;
     }
+    #controller-wrap {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+    }
   </style>
 </head>
 <body>
@@ -80,7 +85,9 @@
     </div>
     <span id="status">点击与城市相邻的地块以扩展领土</span>
   </header>
-  <div id="map-container"></div>
+  <div id="map-container">
+    <div id="controller-wrap"></div>
+  </div>
   <script type="module" src="./src/city-territory-demo.ts"></script>
 </body>
 </html>

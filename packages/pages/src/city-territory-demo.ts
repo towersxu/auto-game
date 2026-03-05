@@ -1,7 +1,8 @@
-import { GameMap } from '@auto-game/ui-component';
+import { GameMap, MapController } from '@auto-game/ui-component';
 import { Coordinate, WorldMap, City } from '@auto-game/city-territory';
 
 const mapContainer = document.getElementById('map-container') as HTMLElement;
+const controllerWrap = document.getElementById('controller-wrap') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
 
 // ── Map setup ──────────────────────────────────────────────────────────────────
@@ -16,6 +17,14 @@ const map = new GameMap(mapContainer, {
   gridColor: 0x555566,
   groundColor: 0x2a4a35,
 });
+
+// Scroll to the top-left so City 1 (at rows 0–1) is immediately visible.
+// pan(0, large positive) is clamped to offsetY = 0 (top edge).
+map.pan(0, 9999);
+
+// ── Pan/zoom controller ────────────────────────────────────────────────────────
+const ctrl = new MapController(controllerWrap, { panStep: 60, zoomStep: 0.15 });
+ctrl.attachMap(map);
 
 // ── City territory domain objects ──────────────────────────────────────────────
 // The WorldMap uses 1-based coordinate indexing: valid range [1, 12] × [1, 16].
