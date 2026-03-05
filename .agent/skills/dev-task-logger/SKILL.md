@@ -23,7 +23,7 @@ Invoke this skill when:
 
 ## Log File Location
 
-Tasks are logged to: `.trae/logs/dev-tasks.json`
+Tasks are logged to: `.agent/logs/dev-tasks.json`
 
 ## Log Entry Format
 
