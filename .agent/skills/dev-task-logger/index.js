@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const LOGS_DIR = path.join(process.cwd(), '.trae', 'logs');
+const LOGS_DIR = path.join(process.cwd(), '.agent', 'logs');
 const LOG_FILE = path.join(LOGS_DIR, 'dev-tasks.json');
 
 function ensureLogFile() {

@@ -94,7 +94,7 @@
    - 完成后对父需求有明确贡献
 3. **创建子 Issue**：使用 `spec-task-decomposer` skill 在 GitHub 上创建子任务 Issue：
    ```bash
-   node .trae/skills/spec-task-decomposer/index.js decompose <parent-issue> \
+   node .agent/skills/spec-task-decomposer/index.js decompose <parent-issue> \
      --tasks '[{"title":"子任务1标题","body":"详细描述"},{"title":"子任务2标题","body":"详细描述"}]'
    ```
 4. **确认拆分**：检查父 Issue 上生成的进度 checklist，确保覆盖了所有需求点。
@@ -105,16 +105,16 @@
 
 1. **获取下一个子任务**：
    ```bash
-   node .trae/skills/spec-task-decomposer/index.js next <parent-issue>
+   node .agent/skills/spec-task-decomposer/index.js next <parent-issue>
    ```
 2. **标记开发中**：
    ```bash
-   node .trae/skills/spec-task-decomposer/index.js start <subtask-issue>
+   node .agent/skills/spec-task-decomposer/index.js start <subtask-issue>
    ```
 3. **实现子任务**：遵循 TDD 红-绿-重构流程开发。
 4. **标记完成**：
    ```bash
-   node .trae/skills/spec-task-decomposer/index.js complete <subtask-issue>
+   node .agent/skills/spec-task-decomposer/index.js complete <subtask-issue>
    ```
 5. **重复**：回到步骤 1，直到所有子任务完成。
 
@@ -124,7 +124,7 @@
 
 - **随时可查**：任何时候都可以通过以下命令查看进度：
   ```bash
-  node .trae/skills/spec-task-decomposer/index.js status <parent-issue>
+  node .agent/skills/spec-task-decomposer/index.js status <parent-issue>
   ```
 - **状态流转**：子任务状态必须及时更新：`subtask-pending` → `subtask-in-progress` → `subtask-done`
 - **父 Issue 可见**：父 Issue 上的 checklist 会反映所有子任务的完成情况。
