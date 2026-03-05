@@ -79,10 +79,12 @@ describe('ResourceModule', () => {
     });
 
     it('should allow duplicate resource types on a tile', () => {
-      // With only one prototype, all resources must be the same type.
+      // With fillChance = 1.0, the fill step always continues, so a single
+      // prototype with score 2 and maxScore 10 must produce 5 identical items.
       const mod = new ResourceModule({
         prototypes: [{ name: 'Grain', score: 2 }],
         maxScore: 10,
+        fillChance: 1.0,
       });
       const rng = new SeedSystem('dup');
       const data = mod.generateForTile(rng);
@@ -101,16 +103,44 @@ describe('ResourceModule', () => {
       expect(data.totalScore).toBe(0);
     });
 
-    it('should fill as much as possible without exceeding maxScore', () => {
+    it('should fill to max when fillChance is 1.0', () => {
+      // With fillChance = 1.0, the algorithm always continues filling.
       // maxScore = 6 with score-2 items → should always get 3 items = 6 total.
       const mod = new ResourceModule({
         prototypes: [{ name: 'X', score: 2 }],
         maxScore: 6,
+        fillChance: 1.0,
       });
       const rng = new SeedSystem('fill');
       const data = mod.generateForTile(rng);
       expect(data.totalScore).toBe(6);
       expect(data.resources).toHaveLength(3);
+    });
+
+    it('should produce varied scores with default fillChance', () => {
+      // With default fillChance (0.5), over many tiles we should see a range
+      // of scores, not just near-maximum values.
+      const mod = new ResourceModule();
+      const scores = new Set<number>();
+      for (let i = 0; i < 200; i++) {
+        const rng = new SeedSystem(`varied-${i}`);
+        const data = mod.generateForTile(rng);
+        scores.add(data.totalScore);
+      }
+      // We expect at least 4 distinct score values across 200 tiles.
+      expect(scores.size).toBeGreaterThanOrEqual(4);
+    });
+
+    it('should mostly produce single-resource tiles when fillChance is 0', () => {
+      const mod = new ResourceModule({ fillChance: 0 });
+      let singleCount = 0;
+      for (let i = 0; i < 100; i++) {
+        const rng = new SeedSystem(`zero-fill-${i}`);
+        const data = mod.generateForTile(rng);
+        if (data.resources.length === 1) singleCount++;
+      }
+      // All tiles should have exactly one resource when fillChance is 0.
+      expect(singleCount).toBe(100);
     });
   });
 

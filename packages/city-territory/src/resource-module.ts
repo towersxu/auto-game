@@ -44,6 +44,11 @@ export interface ResourceModuleConfig {
   prototypes: ResourcePrototype[];
   /** Maximum total score allowed per tile. */
   maxScore: number;
+  /**
+   * Probability (0–1) of continuing to add another resource during the fill
+   * step.  Lower values produce more low-score tiles.  Default: 0.5.
+   */
+  fillChance: number;
 }
 
 // ── Default configuration ───────────────────────────────────────────────────
@@ -65,16 +70,19 @@ export const DEFAULT_MAX_SCORE = 10;
  * Algorithm:
  * 1. **Guarantee step** — pick one random resource (from those that fit)
  *    so every tile has score > 0.
- * 2. **Fill step** — keep adding random resources while the remaining
- *    budget allows at least one more resource to fit.
+ * 2. **Fill step** — on each iteration, roll a random number; if it
+ *    exceeds `fillChance` the tile stops filling early.  This produces
+ *    a natural distribution of low, medium, and high-score tiles.
  */
 export class ResourceModule {
   public readonly prototypes: ResourcePrototype[];
   public readonly maxScore: number;
+  public readonly fillChance: number;
 
   constructor(config?: Partial<ResourceModuleConfig>) {
     this.prototypes = config?.prototypes ?? DEFAULT_PROTOTYPES;
     this.maxScore = config?.maxScore ?? DEFAULT_MAX_SCORE;
+    this.fillChance = config?.fillChance ?? 0.5;
   }
 
   /**
@@ -99,11 +107,12 @@ export class ResourceModule {
     resources.push({ name: first.name, score: first.score });
     totalScore += first.score;
 
-    // 2. Fill step: keep adding while budget allows.
+    // 2. Fill step: each iteration has a `fillChance` probability of
+    //    continuing.  This prevents tiles from always filling to max.
     let remaining = this.maxScore - totalScore;
     let candidates = fittable.filter(p => p.score <= remaining);
 
-    while (candidates.length > 0) {
+    while (candidates.length > 0 && rng.nextFloat() < this.fillChance) {
       const pick = rng.choice(candidates);
       resources.push({ name: pick.name, score: pick.score });
       totalScore += pick.score;
