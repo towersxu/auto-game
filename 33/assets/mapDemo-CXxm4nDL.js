@@ -1,2 +1,0 @@
-import"./modulepreload-polyfill-B5Qt9EMX.js";import{G as o,M as n}from"./map-controller-370y4d0Y.js";const e=document.getElementById("map-container"),r=document.getElementById("controller-wrap"),t=new o(e,{gridWidth:168,gridHeight:168,cellSize:10,gridColor:5592422,groundColor:2771509}),i=new n(r,{panStep:30,zoomStep:.15});i.attachMap(t);window.addEventListener("resize",()=>{t.resize(e.clientWidth,e.clientHeight)});
-//# sourceMappingURL=mapDemo-CXxm4nDL.js.map
