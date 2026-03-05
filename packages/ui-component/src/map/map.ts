@@ -68,6 +68,12 @@ export class GameMap {
   /** ID of the in-progress tilt animation (null when idle). */
   private _animId: number | null = null;
 
+  /** Map of per-cell colour overlay meshes keyed by "col:row". */
+  private _cellMeshes: Map<string, THREE.Mesh> = new Map();
+
+  /** Optional handler called when a grid cell is clicked. */
+  private _clickHandler: ((col: number, row: number) => void) | null = null;
+
   constructor(container: HTMLElement, options: MapOptions = {}) {
     this.gridWidth = options.gridWidth ?? 168;
     this.gridHeight = options.gridHeight ?? 168;
@@ -104,6 +110,8 @@ export class GameMap {
       offsetX: this._clampOffsetX(offsetX, cellSize),
       offsetY: this._clampOffsetY(offsetY, cellSize),
     };
+
+    this.renderer.domElement.addEventListener('click', this._handleClick.bind(this));
 
     this.render();
   }
@@ -188,6 +196,46 @@ export class GameMap {
     };
   }
 
+  // ─── cell colour API ─────────────────────────────────────────────────────
+
+  /**
+   * Set the colour overlay for a single grid cell.
+   * Call with color = null to clear a previously applied colour.
+   *
+   * @param col   - 0-based column index (0 ≤ col < gridWidth).
+   * @param row   - 0-based row index (0 ≤ row < gridHeight).
+   * @param color - Three.js hex colour number, or null to clear.
+   */
+  setCellColor(col: number, row: number, color: number | null): void {
+    const key = `${col}:${row}`;
+    const existing = this._cellMeshes.get(key);
+    if (existing) {
+      this.scene.remove(existing);
+      existing.geometry.dispose();
+      (existing.material as THREE.Material).dispose();
+      this._cellMeshes.delete(key);
+    }
+    if (color !== null) {
+      const geo = new THREE.PlaneGeometry(0.9, 0.9);
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(col + 0.5, 0.01, row + 0.5);
+      this.scene.add(mesh);
+      this._cellMeshes.set(key, mesh);
+    }
+    this.render();
+  }
+
+  /**
+   * Register a callback that fires whenever the user clicks a grid cell.
+   * The callback receives 0-based (col, row) coordinates.
+   * Passing null removes any previously registered handler.
+   */
+  onCellClick(callback: ((col: number, row: number) => void) | null): void {
+    this._clickHandler = callback;
+  }
+
   /**
    * Render the current frame.
    * Updates the orthographic camera frustum and position to match the current
@@ -234,6 +282,12 @@ export class GameMap {
       cancelAnimationFrame(this._animId);
       this._animId = null;
     }
+    for (const mesh of this._cellMeshes.values()) {
+      this.scene.remove(mesh);
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+    }
+    this._cellMeshes.clear();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
@@ -282,6 +336,26 @@ export class GameMap {
       }
     };
     this._animId = requestAnimationFrame(step);
+  }
+
+  /**
+   * Convert a DOM click event into a grid (col, row) and invoke the click
+   * handler if one is registered.  Accounts for CSS scaling of the canvas.
+   */
+  private _handleClick(event: MouseEvent): void {
+    if (!this._clickHandler) return;
+    const canvas = this.renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width > 0 ? canvas.width / rect.width : 1;
+    const scaleY = rect.height > 0 ? canvas.height / rect.height : 1;
+    const canvasX = (event.clientX - rect.left) * scaleX;
+    const canvasY = (event.clientY - rect.top) * scaleY;
+    const { offsetX, offsetY, cellSize } = this.state;
+    const col = Math.floor((canvasX - offsetX) / cellSize);
+    const row = Math.floor((canvasY - offsetY) / cellSize);
+    if (col >= 0 && col < this.gridWidth && row >= 0 && row < this.gridHeight) {
+      this._clickHandler(col, row);
+    }
   }
 
   // ─── private helpers ──────────────────────────────────────────────────────

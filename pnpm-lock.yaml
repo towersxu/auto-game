@@ -12,6 +12,15 @@ importers:
         specifier: ^5.3.0
         version: 5.9.3
 
+  packages/city-territory:
+    devDependencies:
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@vitest/ui@4.0.18)(jsdom@28.1.0)
+
   packages/data-base:
     devDependencies:
       typescript:
@@ -32,6 +41,9 @@ importers:
 
   packages/pages:
     dependencies:
+      '@auto-game/city-territory':
+        specifier: workspace:*
+        version: link:../city-territory
       '@auto-game/data-base':
         specifier: workspace:*
         version: link:../data-base

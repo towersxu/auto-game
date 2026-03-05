@@ -6,8 +6,9 @@
     "paths": {
       "@auto-game/ui-component": ["../ui-component/src/index.ts"],
       "@auto-game/logic": ["../logic/src/index.ts"],
-      "@auto-game/data-base": ["../data-base/src/index.ts"]
+      "@auto-game/data-base": ["../data-base/src/index.ts"],
+      "@auto-game/city-territory": ["../city-territory/src/index.ts"]
     }
   },
-  "include": ["src", "../ui-component/src", "../logic/src", "../data-base/src"]
+  "include": ["src", "../ui-component/src", "../logic/src", "../data-base/src", "../city-territory/src"]
 }
