@@ -62,10 +62,15 @@
       width: 100% !important;
       height: 100% !important;
     }
+    #controller-wrap {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+    }
   </style>
-  <script type="module" crossorigin src="/auto-game/32/assets/cityTerritoryDemo-Bf8PcCT-.js"></script>
+  <script type="module" crossorigin src="/auto-game/32/assets/cityTerritoryDemo-BA4W9t1G.js"></script>
   <link rel="modulepreload" crossorigin href="/auto-game/32/assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="modulepreload" crossorigin href="/auto-game/32/assets/map-tIaJwlYp.js">
+  <link rel="modulepreload" crossorigin href="/auto-game/32/assets/map-controller-CQYEU65r.js">
 </head>
 <body>
   <header>
@@ -83,6 +88,8 @@
     </div>
     <span id="status">点击与城市相邻的地块以扩展领土</span>
   </header>
-  <div id="map-container"></div>
+  <div id="map-container">
+    <div id="controller-wrap"></div>
+  </div>
 </body>
 </html>
